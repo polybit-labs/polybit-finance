@@ -5,6 +5,12 @@ import "./interfaces/IPolybitPriceOracle.sol";
 import "./interfaces/IPolybitDETFOracle.sol";
 import "./interfaces/IPolybitDETF.sol";
 
+/**
+ * @title Polybit Rebalancer
+ * @author Matt Leeburn
+ * @notice A protocol to create swap orders to rebalance a Decentralised ETF.
+ */
+
 contract PolybitRebalancer {
     string public rebalancerVersion;
 
@@ -22,7 +28,14 @@ contract PolybitRebalancer {
         rebalancerVersion = _rebalancerVersion;
     }
 
-    // Output 1: items in owned that do not exist in target (SELL)
+    /**
+     * @notice Used to create a list of tokens that are owned by the DETF,
+     * but are no longer a target of the DETF strategy and therefore should be sold.
+     * @param ownedAssetsList is the list of tokens owned by the DETF.
+     * @param targetAssetsList is the list of tokens that are currently a target
+     * for the DETF strategy.
+     * @return sellList is the list of tokens to sell.
+     */
     function createSellList(
         address[] memory ownedAssetsList,
         address[] memory targetAssetsList
@@ -57,7 +70,15 @@ contract PolybitRebalancer {
         return sellList;
     }
 
-    // Output 2: items in target that exist in owned (ADJUST)
+    /**
+     * @notice Used to create a list of tokens that are owned by the DETF,
+     * and are still a target of the DETF and therefore should be adjusted
+     * to ensure the owned percentage is equal to the target percentage.
+     * @param ownedAssetsList is the list of tokens owned by the DETF.
+     * @param targetAssetsList is the list of tokens that are currently a target
+     * for the DETF strategy.
+     * @return adjustList is the list of tokens to adjust.
+     */
     function createAdjustList(
         address[] memory ownedAssetsList,
         address[] memory targetAssetsList
@@ -93,6 +114,12 @@ contract PolybitRebalancer {
         return adjustList;
     }
 
+    /**
+     * @notice Used to split the tokens that need to be adjusted by selling.
+     * @param detfAddress is the address of the DETF Oracle.
+     * @param adjustList is the list of tokens to adjust.
+     * @return adjustToSellList is the list of tokens to adjust by selling.
+     */
     function createAdjustToSellList(
         address detfAddress,
         address[] memory adjustList
@@ -129,6 +156,12 @@ contract PolybitRebalancer {
         return adjustToSellList;
     }
 
+    /**
+     * @notice Used to split the tokens that need to be adjusted by buying.
+     * @param detfAddress is the address of the DETF Oracle.
+     * @param adjustList is the list of tokens to adjust.
+     * @return adjustToBuyList is the list of tokens to adjust by buying.
+     */
     function createAdjustToBuyList(
         address detfAddress,
         address[] memory adjustList
@@ -164,7 +197,14 @@ contract PolybitRebalancer {
         return adjustToBuyList;
     }
 
-    // Output 3: items in target that do not exist in owned (BUY)
+    /**
+     * @notice Used to create a list of tokens that are not owned by the DETF,
+     * but are a target of the DETF strategy and therefore should be bought.
+     * @param ownedAssetsList is the list of tokens owned by the DETF.
+     * @param targetAssetsList is the list of tokens that are currently a target
+     * for the DETF strategy.
+     * @return buyList is the list of tokens to buy.
+     */
     function createBuyList(
         address[] memory ownedAssetsList,
         address[] memory targetAssetsList
@@ -199,8 +239,15 @@ contract PolybitRebalancer {
         return buyList;
     }
 
-    // Get the total of target percentages to buy, then multiply each one by the
-    // total amount of remaing WETH to get the precise amount
+    /**
+     * @notice Get the total of target percentages to buy, then multiply each one
+     * by the total amount of remaining WETH to get the precise amount to buy.
+     * @param adjustToBuyList is the list of tokens to adjust by buying.
+     * @param buyList is the list of tokens to buy.
+     * @param detfAddress is the address of the DETF Oracle.
+     * @return wethBalance is the balance of WETH owned by the DETF.
+     * @return totalTargetPercentage is the percetage of the total target amount.
+     */
     function calcTotalTargetBuyPercentage(
         address[] memory adjustToBuyList,
         address[] memory buyList,
@@ -239,6 +286,13 @@ contract PolybitRebalancer {
         return (wethBalance, totalTargetPercentage);
     }
 
+    /**
+     * @notice Creates a sell order to be passed into the Router to sell tokens.
+     * @param sellList is the list of tokens to sell.
+     * @param detfAddress is the address of the DETF Oracle.
+     * @return sellListAmountsIn is the list of amounts in for the sell orders.
+     * @return sellListAmountsOut is the list of amounts out for the sell orders.
+     */
     function createSellOrder(address[] memory sellList, address detfAddress)
         external
         view
@@ -260,6 +314,15 @@ contract PolybitRebalancer {
         return (sellListAmountsIn, sellListAmountsOut);
     }
 
+    /**
+     * @notice Creates a sell order to be passed into the Router to sell tokens.
+     * @param adjustToSellList is the list of tokens to adjust by selling.
+     * @param detfAddress is the address of the DETF Oracle.
+     * @return adjustToSellListAmountsIn is the list of amounts in for the adjust
+     * to sell orders.
+     * @return adjustToSellListAmountsOut is the list of amounts out for the adjust
+     * to sell orders.
+     */
     function createAdjustToSellOrder(
         address[] memory adjustToSellList,
         address detfAddress
@@ -269,11 +332,6 @@ contract PolybitRebalancer {
         info.detfOracleAddress = IPolybitDETF(detfAddress)
             .getDETFOracleAddress();
         info.priceOracleAddress = address(0);
-        info.riskWeighting = "";
-        info.tokenPrice = 0;
-        info.tokenBalance = 0;
-        info.tokenBalanceInWeth = 0;
-        info.targetPercentage = 0;
 
         uint256[] memory adjustToSellListAmountsIn = new uint256[](
             adjustToSellList.length
@@ -321,6 +379,15 @@ contract PolybitRebalancer {
         return (adjustToSellListAmountsIn, adjustToSellListAmountsOut);
     }
 
+    /**
+     * @notice Creates a buy order to be passed into the Router to buy tokens.
+     * @param adjustToBuyList is the list of tokens to adjust by buying.
+     * @param detfAddress is the address of the DETF Oracle.
+     * @return adjustToBuyListAmountsIn is the list of amounts in for the adjust
+     * to buy orders.
+     * @return adjustToBuyListAmountsOut is the list of amounts out for the adjust
+     * to buy orders.
+     */
     function createAdjustToBuyOrder(
         uint256 totalBalance,
         address[] memory adjustToBuyList,
@@ -373,6 +440,13 @@ contract PolybitRebalancer {
         return (adjustToBuyListAmountsIn, adjustToBuyListAmountsOut);
     }
 
+    /**
+     * @notice Creates a buy order to be passed into the Router to buy tokens.
+     * @param buyList is the list of tokens to buy.
+     * @param detfAddress is the address of the DETF Oracle.
+     * @return buyListAmountsIn is the list of amounts in for the buy orders.
+     * @return buyListAmountsOut is the list of amounts out for the buy orders.
+     */
     function createBuyOrder(
         address[] memory buyList,
         uint256 wethBalance,
