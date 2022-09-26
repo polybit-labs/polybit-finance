@@ -5,7 +5,7 @@ import "./PolybitDETFOracle.sol";
 import "./Ownable.sol";
 
 /**
- * @title Polybit DETF Oracle Factory v0.0.3
+ * @title Polybit DETF Oracle Factory
  * @author Matt Leeburn
  * @notice An oracle factory to spawn new price oracles for on-chain price referencing.
  */
@@ -28,18 +28,14 @@ contract PolybitDETFOracleFactory is Ownable {
     function createOracle(
         string memory strategyName,
         string memory strategyId,
-        address polybitRouterAddress,
-        address wethAddress,
-        address pancakeswapFactoryAddress
+        address polybitRouterAddress
     ) external onlyOwner {
         PolybitDETFOracle Oracle = new PolybitDETFOracle(
             oracleVersion,
             owner(),
             strategyName,
             strategyId,
-            polybitRouterAddress,
-            wethAddress,
-            pancakeswapFactoryAddress
+            polybitRouterAddress
         );
         oracleArray.push(Oracle);
         oracleAddressList.push(address(Oracle));

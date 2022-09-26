@@ -10,7 +10,7 @@ import "./libraries/SafeMath.sol";
 contract PolybitRouter {
     using SafeMath for uint256;
 
-    address internal immutable factory;
+    address internal immutable swapFactory;
     address internal immutable weth;
 
     modifier ensure(uint256 deadline) {
@@ -20,11 +20,15 @@ contract PolybitRouter {
     address[] internal baseTokens;
     mapping(address => string) internal baseTokenType;
 
-    constructor(address _factory, address _weth) {
-        require(address(_factory) != address(0));
+    constructor(address _swapFactory, address _weth) {
+        require(address(_swapFactory) != address(0));
         require(address(_weth) != address(0));
-        factory = _factory;
+        swapFactory = _swapFactory;
         weth = _weth;
+    }
+
+    function getSwapFactory() external view returns (address) {
+        return swapFactory;
     }
 
     function addBaseToken(address tokenAddress, string memory tokenType)
@@ -129,7 +133,7 @@ contract PolybitRouter {
         address recipient,
         uint256 deadline
     ) internal virtual ensure(deadline) returns (uint256[] memory amounts) {
-        amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path);
+        amounts = UniswapV2Library.getAmountsOut(swapFactory, amountIn, path);
         require(
             amounts[amounts.length - 1] >= amountOutMin,
             "PolybitRouter: INSUFFICIENT_OUTPUT_AMOUNT"
@@ -137,7 +141,7 @@ contract PolybitRouter {
         TransferHelper.safeTransferFrom(
             path[0],
             msg.sender,
-            UniswapV2Library.pairFor(factory, path[0], path[1]),
+            UniswapV2Library.pairFor(swapFactory, path[0], path[1]),
             amounts[0]
         );
 
@@ -149,9 +153,9 @@ contract PolybitRouter {
                 ? (uint256(0), amountOut)
                 : (amountOut, uint256(0));
             address to = i < path.length - 2
-                ? UniswapV2Library.pairFor(factory, output, path[i + 2])
+                ? UniswapV2Library.pairFor(swapFactory, output, path[i + 2])
                 : recipient;
-            IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output))
+            IUniswapV2Pair(UniswapV2Library.pairFor(swapFactory, input, output))
                 .swap(amount0Out, amount1Out, to, new bytes(0));
         }
         return amounts;

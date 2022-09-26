@@ -2,6 +2,15 @@
 pragma solidity >=0.8.7;
 
 interface IPolybitRouter {
+    function getSwapFactory() external view returns (address);
+
+    function getBaseTokens() external view returns (address[] memory);
+
+    function getBaseTokenType(address tokenAddress)
+        external
+        view
+        returns (string memory);
+
     function liquidPath(
         address detfOracleAddress,
         address tokenIn,

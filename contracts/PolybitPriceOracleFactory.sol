@@ -5,7 +5,7 @@ import "./PolybitPriceOracle.sol";
 import "./Ownable.sol";
 
 /**
- * @title Polybit Price Oracle Factory v0.0.4
+ * @title Polybit Price Oracle Factory
  * @author Matt Leeburn
  * @notice An oracle factory to spawn new price oracles for on-chain price referencing.
  */

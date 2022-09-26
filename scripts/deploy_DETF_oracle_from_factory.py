@@ -3,20 +3,12 @@ from scripts.utils.polybit_utils import get_account
 
 
 def create_oracle(
-    account,
-    oracle_factory,
-    portfolio_name,
-    portfolio_id,
-    polybitRouterAddress,
-    weth_address,
-    pancakeswap_factory_address,
+    account, oracle_factory, portfolio_name, portfolio_id, polybitRouterAddress
 ):
     tx = oracle_factory.createOracle(
         portfolio_name,
         portfolio_id,
         polybitRouterAddress,
-        weth_address,
-        pancakeswap_factory_address,
         {"from": account},
     )
     tx.wait(1)
@@ -30,22 +22,12 @@ def main(
     detfName,
     detfId,
     polybitRouterAddress,
-    weth_address,
-    pancakeswap_factory_address,
 ):
     oracle_factory_abi = PolybitDETFOracleFactory.abi
     oracle_factory = Contract.from_abi(
         "oracle", oracle_factory_address, oracle_factory_abi
     )
-    create_oracle(
-        account,
-        oracle_factory,
-        detfName,
-        detfId,
-        polybitRouterAddress,
-        weth_address,
-        pancakeswap_factory_address,
-    )
+    create_oracle(account, oracle_factory, detfName, detfId, polybitRouterAddress)
     oracle_address = oracle_factory.getListOfOracles()[-1]
     oracle = Contract.from_abi("oracle", oracle_address, PolybitDETFOracle.abi)
     return oracle

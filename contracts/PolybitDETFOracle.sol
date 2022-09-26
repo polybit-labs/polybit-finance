@@ -3,40 +3,12 @@ pragma solidity >=0.8.7;
 
 import "./Ownable.sol";
 import "./interfaces/IPolybitPriceOracle.sol";
-
-interface IPolybitRouter {
-    function getBaseTokens() external view returns (address[] memory);
-
-    function getBaseTokenType(address tokenAddress)
-        external
-        view
-        returns (string memory);
-}
-
-interface IPancakeswapFactory {
-    function getPair(address token0, address token1)
-        external
-        view
-        returns (address);
-}
-
-interface IPancakePair {
-    function token0() external view returns (address);
-
-    function token1() external view returns (address);
-
-    function getReserves()
-        external
-        view
-        returns (
-            uint112 reserve0,
-            uint112 reserve1,
-            uint32 blockTimestampLast
-        );
-}
+import "./interfaces/IPolybitRouter.sol";
+import "./interfaces/IUniswapV2Factory.sol";
+import "./interfaces/IUniswapV2Pair.sol";
 
 /**
- * @title Polybit DETF Oracle v0.0.3
+ * @title Polybit DETF Oracle
  * @author Matt Leeburn
  * @notice A DETF oracle that contains the information set for a specific
  * DETF / investment strategy. Liquidity and risk weighting are calculated live
@@ -54,9 +26,8 @@ contract PolybitDETFOracle is Ownable {
     address[] public targetAssetList;
     address public polybitRouterAddress;
     IPolybitRouter polybitRouter;
-    address pancakeswapFactoryAddress;
-    IPancakeswapFactory pancakeswapFactory;
-    address wethAddress;
+    address swapFactoryAddress;
+    IUniswapV2Factory swapFactory;
     uint256 lastUpdated;
 
     struct liquidityInfo {
@@ -87,9 +58,7 @@ contract PolybitDETFOracle is Ownable {
         address _oracleOwner,
         string memory _detfName,
         string memory _detfId,
-        address _polybitRouterAddress,
-        address _wethAddress,
-        address _pancakeswapFactoryAddress
+        address _polybitRouterAddress
     ) {
         oracleVersion = _oracleVersion;
         require(address(_oracleOwner) != address(0));
@@ -99,11 +68,8 @@ contract PolybitDETFOracle is Ownable {
         require(address(_polybitRouterAddress) != address(0));
         polybitRouterAddress = _polybitRouterAddress;
         polybitRouter = IPolybitRouter(_polybitRouterAddress);
-        require(address(_wethAddress) != address(0));
-        wethAddress = _wethAddress;
-        require(address(_pancakeswapFactoryAddress) != address(0));
-        pancakeswapFactoryAddress = _pancakeswapFactoryAddress;
-        pancakeswapFactory = IPancakeswapFactory(_pancakeswapFactoryAddress);
+        swapFactoryAddress = polybitRouter.getSwapFactory();
+        swapFactory = IUniswapV2Factory(swapFactoryAddress);
     }
 
     /**
@@ -223,14 +189,14 @@ contract PolybitDETFOracle is Ownable {
     }
 
     /**
-     * @return pair is the BASETOKEN / TOKEN pair address on Pancakeswap
+     * @return pair is the BASETOKEN / TOKEN pair address at the swap factory/DEX
      */
     function getPairAddress(address baseToken, address tokenAddress)
         internal
         view
         returns (address)
     {
-        address pair = pancakeswapFactory.getPair(baseToken, tokenAddress);
+        address pair = swapFactory.getPair(baseToken, tokenAddress);
         return pair;
     }
 
@@ -248,7 +214,7 @@ contract PolybitDETFOracle is Ownable {
 
         info.priceOracleAddress = getPriceOracleAddress(tokenAddress);
         info.pairAddress = getPairAddress(baseToken, tokenAddress);
-        IPancakePair tokenPair = IPancakePair(info.pairAddress);
+        IUniswapV2Pair tokenPair = IUniswapV2Pair(info.pairAddress);
 
         if (address(tokenPair) != address(0)) {
             (info.reserve0, info.reserve1, ) = tokenPair.getReserves();

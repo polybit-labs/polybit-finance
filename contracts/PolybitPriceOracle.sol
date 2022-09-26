@@ -10,7 +10,7 @@ interface ERC20 {
 }
 
 /**
- * @title Polybit Price Oracle v0.0.4
+ * @title Polybit Price Oracle
  * @author Matt Leeburn
  * @notice A price oracle for on-chain price referencing. Prices are updated using a
  * combination of on-chain and off-chain sources. Price updates are triggered by the
