@@ -2,12 +2,7 @@
 pragma solidity >=0.8.4;
 
 import "./Ownable.sol";
-
-interface ERC20 {
-    function decimals() external view returns (uint8);
-
-    function symbol() external view returns (string memory);
-}
+import "./interfaces/IERC20.sol";
 
 /**
  * @title Polybit Price Oracle
@@ -21,10 +16,10 @@ interface ERC20 {
 contract PolybitPriceOracle is Ownable {
     string public oracleVersion;
     uint256 public oracleStatus;
-    address factoryAddress;
-    address tokenAddress;
-    uint256 latestPrice;
-    uint256 lastUpdated;
+    address internal factoryAddress;
+    address internal tokenAddress;
+    uint256 internal latestPrice;
+    uint256 internal lastUpdated;
 
     constructor(
         string memory _oracleVersion,
@@ -95,7 +90,7 @@ contract PolybitPriceOracle is Ownable {
      * relates too.
      */
     function getSymbol() external view returns (string memory) {
-        string memory symbol = ERC20(tokenAddress).symbol();
+        string memory symbol = IERC20(tokenAddress).symbol();
         return symbol;
     }
 
@@ -104,7 +99,7 @@ contract PolybitPriceOracle is Ownable {
      * relates too.
      */
     function getDecimals() external view returns (uint8) {
-        uint8 decimals = ERC20(tokenAddress).decimals();
+        uint8 decimals = IERC20(tokenAddress).decimals();
         return decimals;
     }
 

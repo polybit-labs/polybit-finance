@@ -35,6 +35,7 @@ contract PolybitDETFOracleFactory is Ownable {
             owner(),
             strategyName,
             strategyId,
+            address(this),
             polybitRouterAddress
         );
         oracleArray.push(Oracle);

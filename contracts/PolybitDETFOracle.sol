@@ -25,6 +25,8 @@ contract PolybitDETFOracle is Ownable {
     string public detfId;
     address[] public targetAssetList;
     address public polybitRouterAddress;
+    address internal factoryAddress;
+
     IPolybitRouter polybitRouter;
     address swapFactoryAddress;
     IUniswapV2Factory swapFactory;
@@ -58,6 +60,7 @@ contract PolybitDETFOracle is Ownable {
         address _oracleOwner,
         string memory _detfName,
         string memory _detfId,
+        address _factoryAddress,
         address _polybitRouterAddress
     ) {
         oracleVersion = _oracleVersion;
@@ -65,6 +68,8 @@ contract PolybitDETFOracle is Ownable {
         _transferOwnership(_oracleOwner);
         detfName = _detfName;
         detfId = _detfId;
+        require(address(_factoryAddress) != address(0));
+        factoryAddress = _factoryAddress;
         require(address(_polybitRouterAddress) != address(0));
         polybitRouterAddress = _polybitRouterAddress;
         polybitRouter = IPolybitRouter(_polybitRouterAddress);
@@ -152,6 +157,13 @@ contract PolybitDETFOracle is Ownable {
         targetAssetList = targetList;
         lastUpdated = block.timestamp;
         emit DetfOracleEvent("Asset removed from target list", tokenAddress);
+    }
+
+    /**
+     * @return factoryAddress is the address of the Price Oracle's Factory
+     */
+    function getFactoryAddress() external view returns (address) {
+        return factoryAddress;
     }
 
     /**

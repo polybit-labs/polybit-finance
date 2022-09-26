@@ -81,6 +81,8 @@ contract PolybitRouter {
         return baseTokenType[tokenAddress];
     }
 
+    event Path(string msg, address[]);
+
     function liquidPath(
         address detfOracleAddress,
         address tokenIn,
@@ -123,6 +125,7 @@ contract PolybitRouter {
         uint256 amountOutMinimum = ((10000 - 200) * tokenAmountOut) / 10000; // e.g. 0.05% calculated as 50/10000
         uint256 deadline = block.timestamp + 15;
 
+        emit Path("Path taken", path);
         swapTokens(tokenAmountIn, amountOutMinimum, path, recipient, deadline);
     }
 
