@@ -206,6 +206,8 @@ contract PolybitDETF {
         return lastRebalance;
     }
 
+    event Deposited(string msg, uint256 ref);
+
     function rebalance() external {
         require(detfStatus != 2, "DETF has been closed by the owner.");
         // Set DETF status to active on first use
@@ -216,6 +218,7 @@ contract PolybitDETF {
         uint256 ethBalance = getEthBalance();
         if (ethBalance > 0) {
             totalDeposited = ethBalance + totalDeposited;
+            emit Deposited("Deposited ETH into DETF", ethBalance);
             wrapETH();
             processFee(
                 getWethBalance(),
