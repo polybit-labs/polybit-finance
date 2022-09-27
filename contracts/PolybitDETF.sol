@@ -22,11 +22,13 @@ contract PolybitDETF {
     IPolybitRouter polybitRouter;
     address internal wethAddress;
     IWETH wethToken;
-    string public riskWeighting;
+    string internal riskWeighting;
     address[] internal ownedAssets;
     uint256 public totalDeposited = 0;
     uint256 internal lastRebalance = 0;
-    uint256 internal rebalancePeriods = 1 * 60; //90 * 86400;
+    uint256 internal constant rebalancePeriods = 1 * 60; //90 * 86400;
+    uint256 internal unlockTime;
+    uint256 public valueAtClose;
     uint256 internal detfStatus = 0; //Set status to inactive (0 = inactive, 1 = active, 2 = closed)
 
     using SafeERC20 for IERC20;
@@ -37,8 +39,13 @@ contract PolybitDETF {
         address _polybitDETFOracleFactoryAddress,
         string memory _riskWeighting,
         address _polybitRebalancerAddress,
-        address _polybitRouterAddress
+        address _polybitRouterAddress,
+        uint256 _lockDuration
     ) {
+        require(address(_polybitDETFOracleAddress) != address(0));
+        require(address(_polybitDETFOracleFactoryAddress) != address(0));
+        require(address(_polybitRebalancerAddress) != address(0));
+        require(address(_polybitRouterAddress) != address(0));
         polybitDETFOracleAddress = _polybitDETFOracleAddress;
         polybitDETFOracle = IPolybitDETFOracle(polybitDETFOracleAddress);
         polybitDETFOracleFactoryAddress = _polybitDETFOracleFactoryAddress;
@@ -52,10 +59,29 @@ contract PolybitDETF {
         riskWeighting = _riskWeighting;
         wethAddress = polybitRouter.getWethAddress();
         wethToken = IWETH(wethAddress);
+        unlockTime = block.timestamp + _lockDuration;
+        require(
+            block.timestamp < unlockTime,
+            "Unlock time should be in the future"
+        );
     }
+
+    receive() external payable {}
+
+    fallback() external payable {}
 
     function getDETFOracleAddress() external view returns (address) {
         return polybitDETFOracleAddress;
+    }
+
+    function setPolybitRebalancerAddress(address rebalancerAddress) external {
+        require(address(rebalancerAddress) != address(0));
+        polybitRebalancerAddress = rebalancerAddress;
+    }
+
+    function setPolybitRouterAddress(address routerAddress) external {
+        require(address(routerAddress) != address(0));
+        polybitRouterAddress = routerAddress;
     }
 
     function setRiskWeighting(uint8 riskWeightingSelector) external {
@@ -75,13 +101,13 @@ contract PolybitDETF {
         return riskWeighting;
     }
 
-    /*     function getLockTimeLeft() external view returns (uint256) {
+    function getLockTimeLeft() external view returns (uint256) {
         if (unlockTime > block.timestamp) {
             return unlockTime - block.timestamp;
         } else {
             return uint256(0);
         }
-    } */
+    }
 
     function processFee(
         uint256 inputAmount,
@@ -191,7 +217,11 @@ contract PolybitDETF {
         if (ethBalance > 0) {
             totalDeposited = ethBalance + totalDeposited;
             wrapETH();
-            //processFee(getWethBalance(), depositFee, depositFeeAddress);
+            processFee(
+                getWethBalance(),
+                polybitDETFOracleFactory.getDepositFee(),
+                polybitDETFOracleFactory.getFeeAddress()
+            );
         }
         lastRebalance = block.timestamp;
 
@@ -325,9 +355,27 @@ contract PolybitDETF {
         }
     }
 
-    receive() external payable {}
-
-    fallback() external payable {}
+    function swapWithLiquidPath(
+        address tokenIn,
+        address tokenOut,
+        uint256 tokenAmountIn,
+        uint256 tokenAmountOut
+    ) internal {
+        address recipient = address(this);
+        IERC20 token = IERC20(tokenIn);
+        require(
+            token.approve(address(polybitRouterAddress), tokenAmountIn),
+            "TOKEN approve failed"
+        );
+        polybitRouter.liquidPath(
+            polybitDETFOracleAddress,
+            tokenIn,
+            tokenOut,
+            tokenAmountIn,
+            tokenAmountOut,
+            recipient
+        );
+    }
 
     event EthWrap(string msg, uint256 amount);
 
@@ -349,25 +397,156 @@ contract PolybitDETF {
         wethToken.withdraw(wethBalance);
     }
 
-    function swapWithLiquidPath(
-        address tokenIn,
-        address tokenOut,
-        uint256 tokenAmountIn,
-        uint256 tokenAmountOut
-    ) internal {
-        address recipient = address(this);
-        IERC20 token = IERC20(tokenIn);
+    event TransferToClose(string msg, uint256 ref);
+
+    function transferToClose() external {
         require(
-            token.approve(address(polybitRouterAddress), tokenAmountIn),
-            "TOKEN approve failed"
+            block.timestamp >= unlockTime,
+            "The wallet is locked. Check the time left."
         );
-        polybitRouter.liquidPath(
-            polybitDETFOracleAddress,
-            tokenIn,
-            tokenOut,
-            tokenAmountIn,
-            tokenAmountOut,
-            recipient
+        detfStatus = 2;
+
+        address[] memory ownedAssetList = ownedAssets; // Create temporary list to avoid re-entrancy
+        delete ownedAssets;
+
+        uint256 totalBalanceInWeth = getTotalBalanceInWeth();
+        valueAtClose = totalBalanceInWeth;
+
+        if (totalBalanceInWeth > totalDeposited) {
+            uint256 profit = totalBalanceInWeth - totalDeposited;
+            uint256 performanceFee = polybitDETFOracleFactory
+                .getPerformanceFee();
+            uint256 performanceFeeAmount = (performanceFee * profit) / 10000;
+            uint256 performanceFeePercentage = (performanceFeeAmount /
+                totalBalanceInWeth) * 10000;
+            for (uint256 i = 0; i < ownedAssetList.length; i++) {
+                uint256 tokenBalance = 0;
+                (tokenBalance, ) = getTokenBalance(ownedAssetList[i]);
+                uint256 transferAmount = ((10000 - performanceFeePercentage) *
+                    tokenBalance) / 10000;
+                emit TransferToClose(
+                    "Transferred to DETF owner:",
+                    transferAmount
+                );
+                IERC20(ownedAssetList[i]).safeTransfer(owner, transferAmount);
+
+                uint256 transferFeeAmount = tokenBalance - transferAmount;
+                emit TransferToClose(
+                    "Transferred to Polybit fee address:",
+                    transferFeeAmount
+                );
+                IERC20(ownedAssetList[i]).safeTransfer(
+                    polybitDETFOracleFactory.getFeeAddress(),
+                    transferFeeAmount
+                );
+            }
+
+            uint256 wethBalance = getWethBalance();
+            if (wethBalance > 0) {
+                uint256 transferAmount = ((10000 - performanceFeePercentage) *
+                    wethBalance) / 10000;
+                emit TransferToClose(
+                    "WETH transferred to DETF owner:",
+                    transferAmount
+                );
+                IERC20(wethAddress).safeTransfer(owner, transferAmount);
+
+                uint256 transferFeeAmount = wethBalance - transferAmount;
+                emit TransferToClose(
+                    "WETH transferred to Polybit fee address:",
+                    transferFeeAmount
+                );
+                IERC20(wethAddress).safeTransfer(
+                    polybitDETFOracleFactory.getFeeAddress(),
+                    transferFeeAmount
+                );
+            }
+        } else {
+            for (uint256 i = 0; i < ownedAssetList.length; i++) {
+                uint256 tokenBalance = 0;
+                (tokenBalance, ) = getTokenBalance(ownedAssetList[i]);
+                IERC20(ownedAssetList[i]).safeTransfer(owner, tokenBalance);
+                emit TransferToClose(
+                    "Transferred to DETF owner without fee:",
+                    tokenBalance
+                );
+
+                uint256 wethBalance = getWethBalance();
+                if (wethBalance > 0) {
+                    IERC20(wethAddress).safeTransfer(owner, wethBalance);
+                }
+                emit TransferToClose(
+                    "WETH transferred to DETF owner without fee:",
+                    tokenBalance
+                );
+            }
+        }
+
+        uint256 ethBalance = getEthBalance();
+        emit TransferToClose("ETH balance:", ethBalance);
+
+        if (ethBalance > 0) {
+            (bool sent, ) = owner.call{value: ethBalance}("");
+            require(sent, "Failed to send ETH");
+            emit TransferToClose(
+                "ETH amount returned to wallet owner:",
+                ethBalance
+            );
+        }
+    }
+
+    event SellToClose(string msg, uint256 ref);
+
+    function sellToClose() external {
+        require(
+            block.timestamp >= unlockTime,
+            "The wallet is locked. Check the time left."
         );
+        detfStatus = 2;
+
+        address[] memory ownedAssetList = ownedAssets; // Create temporary list to avoid re-entrancy
+        delete ownedAssets;
+
+        if (ownedAssetList.length > 0) {
+            for (uint256 i = 0; i < ownedAssetList.length; i++) {
+                address tokenAddress = ownedAssetList[i];
+                (
+                    uint256 tokenBalance,
+                    uint256 tokenBalanceInWeth
+                ) = getTokenBalance(tokenAddress);
+                swapWithLiquidPath(
+                    tokenAddress,
+                    wethAddress,
+                    tokenBalance,
+                    tokenBalanceInWeth
+                );
+            }
+        }
+
+        uint256 wethBalance = getWethBalance();
+        valueAtClose = wethBalance;
+
+        if (wethBalance > totalDeposited) {
+            uint256 profit = wethBalance - totalDeposited;
+            processFee(
+                profit,
+                polybitDETFOracleFactory.getPerformanceFee(),
+                polybitDETFOracleFactory.getFeeAddress()
+            );
+        }
+
+        if (wethBalance > 0) {
+            unwrapETH();
+        }
+
+        uint256 ethBalance = getEthBalance();
+        if (ethBalance > 0) {
+            (bool sent, ) = owner.call{value: ethBalance}("");
+            require(sent, "Failed to send ETH");
+            emit SellToClose(
+                "ETH amount returned to wallet owner:",
+                ethBalance
+            );
+        }
     }
 }

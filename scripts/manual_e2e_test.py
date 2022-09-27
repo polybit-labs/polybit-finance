@@ -112,6 +112,8 @@ def main():
     )
     rebalancer = deploy_rebalancer.main(account)
 
+    lockDuration = 10
+
     detf = deploy_DETF.main(
         account,
         detf_oracle.address,
@@ -119,6 +121,7 @@ def main():
         "rwEquallyBalanced",
         rebalancer.address,
         router.address,
+        lockDuration,
     )
 
     add_assets_to_detf_oracle(account, detf_oracle, price_oracles)

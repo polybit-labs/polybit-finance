@@ -9,6 +9,7 @@ def deploy_detf(
     riskWeighting,
     rebalancerAddress,
     pancakeswap_router_address,
+    lockDuration,
 ):
     detf = PolybitDETF.deploy(
         # "0.0.1",  # DETF version
@@ -17,6 +18,7 @@ def deploy_detf(
         riskWeighting,
         rebalancerAddress,
         pancakeswap_router_address,
+        lockDuration,
         {"from": account},
         publish_source=config["networks"][network.show_active()]["verify"],
     )
@@ -30,6 +32,7 @@ def main(
     riskWeighting,
     rebalancerAddress,
     pancakeswap_router_address,
+    lockDuration,
 ):
     detf = deploy_detf(
         account,
@@ -38,5 +41,6 @@ def main(
         riskWeighting,
         rebalancerAddress,
         pancakeswap_router_address,
+        lockDuration,
     )
     return detf

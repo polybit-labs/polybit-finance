@@ -4,6 +4,7 @@ from scripts.utils.polybit_utils import get_account
 
 def deploy_router(account, factory_address, weth_address):
     router = PolybitRouter.deploy(
+        account.address,
         factory_address,
         weth_address,
         {"from": account},
