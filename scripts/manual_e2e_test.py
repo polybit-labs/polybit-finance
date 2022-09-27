@@ -115,9 +115,9 @@ def main():
     detf = deploy_DETF.main(
         account,
         detf_oracle.address,
+        detf_factory.address,
         "rwEquallyBalanced",
         rebalancer.address,
-        config["networks"][network.show_active()]["weth_address"],
         router.address,
     )
 
@@ -222,7 +222,7 @@ def main():
     """
     REBALANCE #3
     """
-    tx = detf.changeRiskWeighting(1, {"from": account})
+    tx = detf.setRiskWeighting(1, {"from": account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])

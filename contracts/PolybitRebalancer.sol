@@ -331,7 +331,6 @@ contract PolybitRebalancer {
 
         info.detfOracleAddress = IPolybitDETF(detfAddress)
             .getDETFOracleAddress();
-        info.priceOracleAddress = address(0);
 
         uint256[] memory adjustToSellListAmountsIn = new uint256[](
             adjustToSellList.length
@@ -387,6 +386,7 @@ contract PolybitRebalancer {
      * to buy orders.
      * @return adjustToBuyListAmountsOut is the list of amounts out for the adjust
      * to buy orders.
+     * @dev percentages are calculated to 4 decimals places using 10**6
      */
     function createAdjustToBuyOrder(
         uint256 totalBalance,
@@ -446,6 +446,7 @@ contract PolybitRebalancer {
      * @param detfAddress is the address of the DETF Oracle.
      * @return buyListAmountsIn is the list of amounts in for the buy orders.
      * @return buyListAmountsOut is the list of amounts out for the buy orders.
+     * @dev percentages are calculated to 4 decimals places using 10**6
      */
     function createBuyOrder(
         address[] memory buyList,

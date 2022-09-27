@@ -4,6 +4,8 @@ pragma solidity >=0.8.7;
 interface IPolybitRouter {
     function getSwapFactory() external view returns (address);
 
+    function getWethAddress() external view returns (address);
+
     function getBaseTokens() external view returns (address[] memory);
 
     function getBaseTokenType(address tokenAddress)

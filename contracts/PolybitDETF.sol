@@ -3,6 +3,7 @@ pragma solidity >=0.8.7;
 
 import "./interfaces/IPolybitPriceOracle.sol";
 import "./interfaces/IPolybitDETFOracle.sol";
+import "./interfaces/IPolybitDETFOracleFactory.sol";
 import "./interfaces/IPolybitRebalancer.sol";
 import "./interfaces/IPolybitRouter.sol";
 import "./interfaces/IWETH.sol";
@@ -11,63 +12,94 @@ import "./libraries/SafeERC20.sol";
 
 contract PolybitDETF {
     address public owner;
-    address public detfOracleAddress;
-    address public rebalancerAddress;
+    address public polybitDETFOracleAddress;
+    IPolybitDETFOracle polybitDETFOracle;
+    address public polybitDETFOracleFactoryAddress;
+    IPolybitDETFOracleFactory polybitDETFOracleFactory;
+    address public polybitRebalancerAddress;
+    IPolybitRebalancer polybitRebalancer;
+    address public polybitRouterAddress;
+    IPolybitRouter polybitRouter;
+    address internal wethAddress;
+    IWETH wethToken;
     string public riskWeighting;
     address[] internal ownedAssets;
     uint256 public totalDeposited = 0;
-    address public wethAddress;
-    IWETH wethToken;
-    address internal polybitRouterAddress;
-    IPolybitRouter polybitRouter;
+    uint256 internal lastRebalance = 0;
+    uint256 internal rebalancePeriods = 1 * 60; //90 * 86400;
+    uint256 internal detfStatus = 0; //Set status to inactive (0 = inactive, 1 = active, 2 = closed)
 
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
 
     constructor(
-        address _detfOracleAddress,
+        address _polybitDETFOracleAddress,
+        address _polybitDETFOracleFactoryAddress,
         string memory _riskWeighting,
-        address _rebalancerAddress,
-        address _wethAddress,
+        address _polybitRebalancerAddress,
         address _polybitRouterAddress
     ) {
-        detfOracleAddress = _detfOracleAddress;
-        riskWeighting = _riskWeighting;
-        rebalancerAddress = _rebalancerAddress;
-        wethAddress = _wethAddress;
-        wethToken = IWETH(wethAddress);
+        polybitDETFOracleAddress = _polybitDETFOracleAddress;
+        polybitDETFOracle = IPolybitDETFOracle(polybitDETFOracleAddress);
+        polybitDETFOracleFactoryAddress = _polybitDETFOracleFactoryAddress;
+        polybitDETFOracleFactory = IPolybitDETFOracleFactory(
+            polybitDETFOracleFactoryAddress
+        );
+        polybitRebalancerAddress = _polybitRebalancerAddress;
+        polybitRebalancer = IPolybitRebalancer(polybitRebalancerAddress);
         polybitRouterAddress = _polybitRouterAddress;
         polybitRouter = IPolybitRouter(polybitRouterAddress);
+        riskWeighting = _riskWeighting;
+        wethAddress = polybitRouter.getWethAddress();
+        wethToken = IWETH(wethAddress);
     }
 
-    function getDETFOracleAddress() public view returns (address) {
-        return detfOracleAddress;
+    function getDETFOracleAddress() external view returns (address) {
+        return polybitDETFOracleAddress;
+    }
+
+    function setRiskWeighting(uint8 riskWeightingSelector) external {
+        require(
+            riskWeightingSelector == 0 || riskWeightingSelector == 1,
+            "Incorrect input for Risk Weighting. Try 0 (rwEquallyBalanced) or 1 (rwLiquidity)."
+        );
+        if (riskWeightingSelector == 0) {
+            riskWeighting = "rwEquallyBalanced";
+        }
+        if (riskWeightingSelector == 1) {
+            riskWeighting = "rwLiquidity";
+        }
     }
 
     function getRiskWeighting() external view returns (string memory) {
         return riskWeighting;
     }
 
-    function changeRiskWeighting(uint8 _riskWeighting) external {
-        require(
-            _riskWeighting == 0 || _riskWeighting == 1,
-            "Incorrect input for Risk Weighting. Try 0 (rwEquallyBalanced) or 1 (rwLiquidity)."
-        );
-        if (_riskWeighting == 0) {
-            riskWeighting = "rwEquallyBalanced";
+    /*     function getLockTimeLeft() external view returns (uint256) {
+        if (unlockTime > block.timestamp) {
+            return unlockTime - block.timestamp;
+        } else {
+            return uint256(0);
         }
-        if (_riskWeighting == 1) {
-            riskWeighting = "rwLiquidity";
-        }
+    } */
+
+    function processFee(
+        uint256 inputAmount,
+        uint256 fee,
+        address feeAddress
+    ) internal {
+        uint256 feeAmount = (inputAmount * fee) / 10000;
+        uint256 cachedFeeAmount = feeAmount;
+        feeAmount = 0;
+        IERC20(wethAddress).safeTransfer(feeAddress, cachedFeeAmount);
     }
 
     function getOwnedAssets() public view returns (address[] memory) {
         return ownedAssets;
     }
 
-    function getTargetAssets() public view returns (address[] memory) {
-        address[] memory targetList = IPolybitDETFOracle(detfOracleAddress)
-            .getTargetList();
+    function getTargetAssets() external view returns (address[] memory) {
+        address[] memory targetList = polybitDETFOracle.getTargetList();
         return targetList;
     }
 
@@ -85,8 +117,9 @@ contract PolybitDETF {
         returns (uint256, uint256)
     {
         IERC20 assetToken = IERC20(tokenAddress);
-        address priceOracleAddress = IPolybitDETFOracle(detfOracleAddress)
-            .getPriceOracleAddress(tokenAddress);
+        address priceOracleAddress = polybitDETFOracle.getPriceOracleAddress(
+            tokenAddress
+        );
         uint256 tokenBalance = assetToken.balanceOf(address(this));
         uint256 tokenDecimals = IPolybitPriceOracle(priceOracleAddress)
             .getDecimals();
@@ -123,44 +156,44 @@ contract PolybitDETF {
             address[] memory
         )
     {
-        address[] memory targetList = IPolybitDETFOracle(detfOracleAddress)
-            .getTargetList();
-        address[] memory sellList = IPolybitRebalancer(rebalancerAddress)
-            .createSellList(ownedAssets, targetList);
-        address[] memory adjustList = IPolybitRebalancer(rebalancerAddress)
-            .createAdjustList(ownedAssets, targetList);
-        address[] memory adjustToSellList = IPolybitRebalancer(
-            rebalancerAddress
-        ).createAdjustToSellList(address(this), adjustList);
-        address[] memory adjustToBuyList = IPolybitRebalancer(rebalancerAddress)
+        address[] memory targetList = polybitDETFOracle.getTargetList();
+        address[] memory sellList = polybitRebalancer.createSellList(
+            ownedAssets,
+            targetList
+        );
+        address[] memory adjustList = polybitRebalancer.createAdjustList(
+            ownedAssets,
+            targetList
+        );
+        address[] memory adjustToSellList = polybitRebalancer
+            .createAdjustToSellList(address(this), adjustList);
+        address[] memory adjustToBuyList = polybitRebalancer
             .createAdjustToBuyList(address(this), adjustList);
-        address[] memory buyList = IPolybitRebalancer(rebalancerAddress)
-            .createBuyList(ownedAssets, targetList);
+        address[] memory buyList = polybitRebalancer.createBuyList(
+            ownedAssets,
+            targetList
+        );
         return (sellList, adjustToSellList, adjustToBuyList, buyList);
     }
 
-    event RebalancerList(string msg, address[]);
-    event ListAmounts(string msg, address[], uint256[]);
-    event ListLength(string msg, uint256);
+    function getLastRebalance() external view returns (uint256) {
+        return lastRebalance;
+    }
 
     function rebalance() external {
-        emit RebalancerList("Owned", getOwnedAssets());
-        emit RebalancerList(
-            "Target",
-            IPolybitDETFOracle(detfOracleAddress).getTargetList()
-        );
-
-        /* require(detfStatus != 2, "DETF has been closed by the owner.");
+        require(detfStatus != 2, "DETF has been closed by the owner.");
         // Set DETF status to active on first use
         if (detfStatus == 0) {
             detfStatus = 1;
-        } */
+        }
+        //require current time is >= lastRebalance + rebalancePeriods
         uint256 ethBalance = getEthBalance();
         if (ethBalance > 0) {
             totalDeposited = ethBalance + totalDeposited;
             wrapETH();
             //processFee(getWethBalance(), depositFee, depositFeeAddress);
         }
+        lastRebalance = block.timestamp;
 
         uint256 totalBalance = getTotalBalanceInWeth();
         require(totalBalance > 0, "No tokens to swap.");
@@ -172,22 +205,12 @@ contract PolybitDETF {
             address[] memory buyList
         ) = getRebalancerLists();
 
-        emit RebalancerList("Sell List", sellList);
-        emit RebalancerList("Adjust To Sell List", adjustToSellList);
-        emit RebalancerList("Adjust To Buy List", adjustToBuyList);
-        emit RebalancerList("Buy List", buyList);
-
         if (sellList.length > 0) {
             (
                 uint256[] memory sellListAmountsIn,
                 uint256[] memory sellListAmountsOut
-            ) = IPolybitRebalancer(rebalancerAddress).createSellOrder(
-                    sellList,
-                    address(this)
-                );
-            emit ListAmounts("Sell List In", sellList, sellListAmountsIn);
-            emit ListAmounts("Sell List Out", sellList, sellListAmountsOut);
-            emit ListLength("Sell list length", sellList.length);
+            ) = polybitRebalancer.createSellOrder(sellList, address(this));
+
             for (uint256 i = 0; i < sellList.length; i++) {
                 if (sellList[i] != address(0)) {
                     swapWithLiquidPath(
@@ -228,20 +251,11 @@ contract PolybitDETF {
             (
                 uint256[] memory adjustToSellListAmountsIn,
                 uint256[] memory adjustToSellListAmountsOut
-            ) = IPolybitRebalancer(rebalancerAddress).createAdjustToSellOrder(
+            ) = polybitRebalancer.createAdjustToSellOrder(
                     adjustToSellList,
                     address(this)
                 );
-            emit ListAmounts(
-                "Adjust To Sell List In",
-                adjustToSellList,
-                adjustToSellListAmountsIn
-            );
-            emit ListAmounts(
-                "Adjust To Sell List Out",
-                adjustToSellList,
-                adjustToSellListAmountsOut
-            );
+
             for (uint256 i = 0; i < adjustToSellList.length; i++) {
                 if (adjustToSellList[i] != address(0)) {
                     swapWithLiquidPath(
@@ -255,10 +269,8 @@ contract PolybitDETF {
         }
 
         // Begin buy orders
-        (
-            uint256 wethBalance,
-            uint256 totalTargetPercentage
-        ) = IPolybitRebalancer(rebalancerAddress).calcTotalTargetBuyPercentage(
+        (uint256 wethBalance, uint256 totalTargetPercentage) = polybitRebalancer
+            .calcTotalTargetBuyPercentage(
                 adjustToBuyList,
                 buyList,
                 address(this)
@@ -270,22 +282,13 @@ contract PolybitDETF {
             (
                 uint256[] memory adjustToBuyListAmountsIn,
                 uint256[] memory adjustToBuyListAmountsOut
-            ) = IPolybitRebalancer(rebalancerAddress).createAdjustToBuyOrder(
+            ) = polybitRebalancer.createAdjustToBuyOrder(
                     totalBalance,
                     adjustToBuyList,
                     totalTargetPercentage,
                     address(this)
                 );
-            emit ListAmounts(
-                "Adjust To Buy List In",
-                adjustToBuyList,
-                adjustToBuyListAmountsIn
-            );
-            emit ListAmounts(
-                "Adjust To Buy List Out",
-                adjustToBuyList,
-                adjustToBuyListAmountsOut
-            );
+
             for (uint256 i = 0; i < adjustToBuyList.length; i++) {
                 if (adjustToBuyList[i] != address(0)) {
                     swapWithLiquidPath(
@@ -302,14 +305,13 @@ contract PolybitDETF {
             (
                 uint256[] memory buyListAmountsIn,
                 uint256[] memory buyListAmountsOut
-            ) = IPolybitRebalancer(rebalancerAddress).createBuyOrder(
+            ) = polybitRebalancer.createBuyOrder(
                     buyList,
                     wethBalance,
                     totalTargetPercentage,
                     address(this)
                 );
-            emit ListAmounts("Buy List In", buyList, buyListAmountsIn);
-            emit ListAmounts("Buy List Out", buyList, buyListAmountsOut);
+
             for (uint256 i = 0; i < buyList.length; i++) {
                 if (buyList[i] != address(0)) {
                     swapWithLiquidPath(
@@ -340,7 +342,10 @@ contract PolybitDETF {
         uint256 wethBalance = getWethBalance();
         require(wethBalance > 0, "No WETH available to unwrap");
         emit EthWrap("UnWrapped ETH", wethBalance);
-        wethToken.approve(address(this), wethBalance);
+        require(
+            wethToken.approve(address(this), wethBalance),
+            "WETH Token approve failed."
+        );
         wethToken.withdraw(wethBalance);
     }
 
@@ -357,7 +362,7 @@ contract PolybitDETF {
             "TOKEN approve failed"
         );
         polybitRouter.liquidPath(
-            detfOracleAddress,
+            polybitDETFOracleAddress,
             tokenIn,
             tokenOut,
             tokenAmountIn,

@@ -31,6 +31,10 @@ contract PolybitRouter {
         return swapFactory;
     }
 
+    function getWethAddress() external view returns (address) {
+        return weth;
+    }
+
     function addBaseToken(address tokenAddress, string memory tokenType)
         external
     {
