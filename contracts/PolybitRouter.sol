@@ -6,12 +6,14 @@ import "./interfaces/IPolybitRouter.sol";
 import "./interfaces/IPolybitDETFOracle.sol";
 import "./libraries/TransferHelper.sol";
 import "./libraries/SafeMath.sol";
+import "./Ownable.sol";
 
-contract PolybitRouter {
+contract PolybitRouter is Ownable {
     using SafeMath for uint256;
 
     address internal immutable swapFactory;
     address internal immutable weth;
+    uint256 public slippage = 200;
 
     modifier ensure(uint256 deadline) {
         require(deadline >= block.timestamp, "PolybitRouter: EXPIRED");
@@ -20,7 +22,13 @@ contract PolybitRouter {
     address[] internal baseTokens;
     mapping(address => string) internal baseTokenType;
 
-    constructor(address _swapFactory, address _weth) {
+    constructor(
+        address _routerOwner,
+        address _swapFactory,
+        address _weth
+    ) {
+        require(address(_routerOwner) != address(0));
+        _transferOwnership(_routerOwner);
         require(address(_swapFactory) != address(0));
         require(address(_weth) != address(0));
         swapFactory = _swapFactory;
@@ -37,6 +45,7 @@ contract PolybitRouter {
 
     function addBaseToken(address tokenAddress, string memory tokenType)
         external
+        onlyOwner
     {
         bool tokenExists = false;
         if (baseTokens.length > 0) {
@@ -51,7 +60,7 @@ contract PolybitRouter {
         baseTokenType[tokenAddress] = tokenType;
     }
 
-    function removeBaseToken(address tokenAddress) external {
+    function removeBaseToken(address tokenAddress) external onlyOwner {
         bool tokenExists = false;
         if (baseTokens.length > 0) {
             for (uint256 i = 0; i < baseTokens.length; i++) {
@@ -83,6 +92,10 @@ contract PolybitRouter {
         returns (string memory)
     {
         return baseTokenType[tokenAddress];
+    }
+
+    function setSlippage(uint256 _slippage) external onlyOwner {
+        slippage = _slippage;
     }
 
     event Path(string msg, address[]);
