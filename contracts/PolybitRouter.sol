@@ -98,52 +98,118 @@ contract PolybitRouter is Ownable {
         slippage = _slippage;
     }
 
-    event Path(string msg, address[]);
+    event LiquidPath(
+        string msg1,
+        uint256 ref1,
+        string msg2,
+        uint256 ref2,
+        string msg3,
+        address[] ref3
+    );
 
     function liquidPath(
-        address detfOracleAddress,
         address tokenIn,
         address tokenOut,
         uint256 tokenAmountIn,
         uint256 tokenAmountOut,
         address recipient
     ) external {
-        uint256 largest = 0;
-        address[] memory path;
-        address mostLiquidBaseToken = address(0);
+        address[] memory dualPath;
+        address[] memory triPath;
+        address[] memory bestPath;
+        address[] memory bestTriPath;
+        uint256 bestAmountOut = 0;
+        uint256 dualPathAmountsOut = 0;
+        uint256 triPathAmountsOut = 0;
         address token = address(0);
+        uint256 tokenAmount = 0;
 
         if (tokenIn == weth) {
             token = tokenOut;
+            tokenAmount = tokenAmountOut;
         } else {
             token = tokenIn;
+            tokenAmount = tokenAmountIn;
         }
 
-        for (uint256 i = 0; i < baseTokens.length; i++) {
-            uint256 pairLiquidity = IPolybitDETFOracle(detfOracleAddress)
-                .getTokenLiquiditySingle(baseTokens[i], token);
-            if (pairLiquidity > largest) {
-                largest = pairLiquidity;
-                mostLiquidBaseToken = baseTokens[i];
+        if (UniswapV2Library.pairFor(swapFactory, weth, token) != address(0)) {
+            (, uint256 tokenLiquidity) = UniswapV2Library.getReserves(
+                swapFactory,
+                weth,
+                token
+            );
+            if (tokenLiquidity > tokenAmount) {
+                dualPath = new address[](2);
+                dualPath[0] = address(tokenIn);
+                dualPath[1] = address(tokenOut);
+                uint256[] memory amountsOut = getAmountsOut(
+                    tokenAmountIn,
+                    dualPath
+                );
+                dualPathAmountsOut = amountsOut[1];
             }
         }
 
-        if (mostLiquidBaseToken == weth) {
-            path = new address[](2);
-            path[0] = address(tokenIn);
-            path[1] = address(tokenOut);
-        } else {
-            path = new address[](3);
-            path[0] = address(tokenIn);
-            path[1] = address(mostLiquidBaseToken);
-            path[2] = address(tokenOut);
+        for (uint256 i = 1; i < baseTokens.length; i++) {
+            if (
+                UniswapV2Library.pairFor(swapFactory, baseTokens[i], token) !=
+                address(0)
+            ) {
+                (, uint256 tokenLiquidity) = UniswapV2Library.getReserves(
+                    swapFactory,
+                    baseTokens[i],
+                    token
+                );
+
+                if (tokenLiquidity > tokenAmount) {
+                    triPath = new address[](3);
+                    triPath[0] = address(tokenIn);
+                    triPath[1] = address(baseTokens[i]);
+                    triPath[2] = address(tokenOut);
+
+                    uint256[] memory amountsOut = getAmountsOut(
+                        tokenAmountIn,
+                        triPath
+                    );
+
+                    if (amountsOut[2] > triPathAmountsOut) {
+                        triPathAmountsOut = amountsOut[2];
+                        bestTriPath = triPath;
+                    }
+                }
+            }
         }
 
-        uint256 amountOutMinimum = ((10000 - 200) * tokenAmountOut) / 10000; // e.g. 0.05% calculated as 50/10000
+        if (dualPathAmountsOut > triPathAmountsOut) {
+            bestPath = dualPath;
+            bestAmountOut = dualPathAmountsOut;
+        } else {
+            bestPath = bestTriPath;
+            bestAmountOut = triPathAmountsOut;
+        }
+
+        /* 
+        Insert exception for when there is not enough liquidity in any path.
+         */
+
+        uint256 amountOutMinimum = ((10000 - 500) * tokenAmountOut) / 10000; // e.g. 0.05% calculated as 50/10000
         uint256 deadline = block.timestamp + 15;
 
-        emit Path("Path taken", path);
-        swapTokens(tokenAmountIn, amountOutMinimum, path, recipient, deadline);
+        emit LiquidPath(
+            "Token Amount Min",
+            amountOutMinimum,
+            "Path Amount",
+            bestAmountOut,
+            "Path",
+            bestPath
+        );
+        swapTokens(
+            tokenAmountIn,
+            amountOutMinimum,
+            bestPath,
+            recipient,
+            deadline
+        );
     }
 
     function swapTokens(
@@ -179,5 +245,14 @@ contract PolybitRouter is Ownable {
                 .swap(amount0Out, amount1Out, to, new bytes(0));
         }
         return amounts;
+    }
+
+    function getAmountsOut(uint256 amountIn, address[] memory path)
+        public
+        view
+        virtual
+        returns (uint256[] memory amounts)
+    {
+        return UniswapV2Library.getAmountsOut(swapFactory, amountIn, path);
     }
 }

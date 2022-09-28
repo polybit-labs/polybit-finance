@@ -14,7 +14,6 @@ interface IPolybitRouter {
         returns (string memory);
 
     function liquidPath(
-        address detfOracleAddress,
         address tokenIn,
         address tokenOut,
         uint256 tokenAmountIn,

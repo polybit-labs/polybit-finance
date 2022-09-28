@@ -21,6 +21,8 @@ TEST_ASSETS = [
     "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
     "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
     "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
+    "0xbA552586eA573Eaa3436f04027ff4effd0c0abbb",
+    "0x477bC8d23c634C154061869478bce96BE6045D12",
 ]
 
 
@@ -225,7 +227,7 @@ def main():
     """
     REBALANCE #3
     """
-    tx = detf.setRiskWeighting(1, {"from": account})
+    """ tx = detf.setRiskWeighting(1, {"from": account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
@@ -256,4 +258,4 @@ def main():
             ),
             "Actual",
             round(token_balance_in_weth / total_balance, 4),
-        )
+        ) """

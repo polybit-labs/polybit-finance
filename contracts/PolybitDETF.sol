@@ -371,7 +371,6 @@ contract PolybitDETF {
             "TOKEN approve failed"
         );
         polybitRouter.liquidPath(
-            polybitDETFOracleAddress,
             tokenIn,
             tokenOut,
             tokenAmountIn,
