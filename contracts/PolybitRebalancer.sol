@@ -12,8 +12,6 @@ import "./interfaces/IPolybitDETF.sol";
  */
 
 contract PolybitRebalancer {
-    string public rebalancerVersion;
-
     struct DETFInfo {
         address detfOracleAddress;
         address priceOracleAddress;
@@ -22,10 +20,6 @@ contract PolybitRebalancer {
         uint256 tokenBalance;
         uint256 tokenBalanceInWeth;
         uint256 targetPercentage;
-    }
-
-    constructor(string memory _rebalancerVersion) {
-        rebalancerVersion = _rebalancerVersion;
     }
 
     /**

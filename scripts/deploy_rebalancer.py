@@ -4,7 +4,6 @@ from scripts.utils.polybit_utils import get_account
 
 def deploy_rebalancer(account):
     rebalancer = PolybitRebalancer.deploy(
-        config["polybit-finance"]["version"],  # Rebalancer version
         {"from": account},
         publish_source=config["networks"][network.show_active()]["verify"],
     )

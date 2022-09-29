@@ -4,6 +4,7 @@ pragma solidity >=0.8.7;
 import "./Ownable.sol";
 import "./interfaces/IPolybitPriceOracle.sol";
 import "./interfaces/IPolybitRouter.sol";
+import "./interfaces/IPolybitDETFOracleFactory.sol";
 import "./interfaces/IUniswapV2Factory.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 
@@ -19,7 +20,6 @@ import "./interfaces/IUniswapV2Pair.sol";
  */
 
 contract PolybitDETFOracle is Ownable {
-    string public oracleVersion;
     uint256 public oracleStatus;
     string public detfName;
     string public detfId;
@@ -28,6 +28,7 @@ contract PolybitDETFOracle is Ownable {
     address internal factoryAddress;
 
     IPolybitRouter polybitRouter;
+    IPolybitDETFOracleFactory polybitDETFOracleFactory;
     address swapFactoryAddress;
     IUniswapV2Factory swapFactory;
     uint256 lastUpdated;
@@ -56,20 +57,19 @@ contract PolybitDETFOracle is Ownable {
     mapping(address => address) internal tokenAddressToPriceOracleAddress;
 
     constructor(
-        string memory _oracleVersion,
         address _oracleOwner,
         string memory _detfName,
         string memory _detfId,
         address _factoryAddress,
         address _polybitRouterAddress
     ) {
-        oracleVersion = _oracleVersion;
         require(address(_oracleOwner) != address(0));
         _transferOwnership(_oracleOwner);
         detfName = _detfName;
         detfId = _detfId;
         require(address(_factoryAddress) != address(0));
         factoryAddress = _factoryAddress;
+        polybitDETFOracleFactory = IPolybitDETFOracleFactory(_factoryAddress);
         require(address(_polybitRouterAddress) != address(0));
         polybitRouterAddress = _polybitRouterAddress;
         polybitRouter = IPolybitRouter(_polybitRouterAddress);

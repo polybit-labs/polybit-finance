@@ -94,6 +94,8 @@ contract PolybitRouter is Ownable {
         address[] ref3
     );
 
+    event LiquidityTest(string msg, address);
+
     function liquidPath(
         address tokenIn,
         address tokenOut,
@@ -125,7 +127,7 @@ contract PolybitRouter is Ownable {
                 weth,
                 token
             );
-            if (tokenLiquidity > tokenAmount) {
+            if (tokenLiquidity > (2 * tokenAmount)) {
                 dualPath = new address[](2);
                 dualPath[0] = address(tokenIn);
                 dualPath[1] = address(tokenOut);
@@ -148,7 +150,7 @@ contract PolybitRouter is Ownable {
                     token
                 );
 
-                if (tokenLiquidity > tokenAmount) {
+                if (tokenLiquidity > (2 * tokenAmount)) {
                     triPath = new address[](3);
                     triPath[0] = address(tokenIn);
                     triPath[1] = address(baseTokens[i]);
@@ -175,29 +177,32 @@ contract PolybitRouter is Ownable {
             bestAmountOut = triPathAmountsOut;
         }
 
-        /* 
-        Insert exception for when there is not enough liquidity in any path.
-         */
+        if (bestPath.length != 0) {
+            uint256 amountOutMinimum = ((10000 - slippage) * tokenAmountOut) /
+                10000; // e.g. 0.05% calculated as 50/10000
+            uint256 deadline = block.timestamp + 15;
 
-        uint256 amountOutMinimum = ((10000 - slippage) * tokenAmountOut) /
-            10000; // e.g. 0.05% calculated as 50/10000
-        uint256 deadline = block.timestamp + 15;
-
-        emit LiquidPath(
-            "Token Amount Min",
-            amountOutMinimum,
-            "Path Amount",
-            bestAmountOut,
-            "Path",
-            bestPath
-        );
-        swapTokens(
-            tokenAmountIn,
-            amountOutMinimum,
-            bestPath,
-            recipient,
-            deadline
-        );
+            emit LiquidPath(
+                "Token Amount Min",
+                amountOutMinimum,
+                "Path Amount",
+                bestAmountOut,
+                "Path",
+                bestPath
+            );
+            swapTokens(
+                tokenAmountIn,
+                amountOutMinimum,
+                bestPath,
+                recipient,
+                deadline
+            );
+        } else {
+            emit LiquidityTest(
+                "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY",
+                token
+            );
+        }
     }
 
     function swapTokens(

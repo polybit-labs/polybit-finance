@@ -12,7 +12,6 @@ def deploy_detf(
     lockDuration,
 ):
     detf = PolybitDETF.deploy(
-        # "0.0.1",  # DETF version
         detfOracleAddress,
         polybitDETFOracleFactoryAddress,
         riskWeighting,

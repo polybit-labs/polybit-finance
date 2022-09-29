@@ -13,12 +13,10 @@ import "./Ownable.sol";
 contract PolybitPriceOracleFactory is Ownable {
     PolybitPriceOracle[] internal oracleArray;
     address[] internal oracleAddressList;
-    string public oracleVersion;
 
-    constructor(address _oracleOwner, string memory _oracleVersion) {
+    constructor(address _oracleOwner) {
         require(address(_oracleOwner) != address(0));
         _transferOwnership(_oracleOwner);
-        oracleVersion = _oracleVersion;
     }
 
     event PriceOracleCreated(string msg, address ref);
@@ -29,7 +27,6 @@ contract PolybitPriceOracleFactory is Ownable {
      */
     function createOracle(address tokenAddress) external onlyOwner {
         PolybitPriceOracle Oracle = new PolybitPriceOracle(
-            oracleVersion,
             owner(),
             tokenAddress,
             address(this)

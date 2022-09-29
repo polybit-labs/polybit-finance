@@ -20,6 +20,7 @@ TEST_ASSETS = [
     "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
     "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
     "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
+    # "0xfb6115445bff7b52feb98650c87f44907e58f802",  # $0 liquidity test token AAVE
     "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
     "0xbA552586eA573Eaa3436f04027ff4effd0c0abbb",
     "0x477bC8d23c634C154061869478bce96BE6045D12",
@@ -105,6 +106,7 @@ def main():
     price_oracles = deploy_price_oracles(account, price_oracle_factory)
 
     detf_factory = deploy_DETF_oracle_factory.main(account)
+
     detf_oracle = deploy_DETF_oracle_from_factory.main(
         account, detf_factory.address, "Test DETF Name", "Tes DETF ID", router.address
     )

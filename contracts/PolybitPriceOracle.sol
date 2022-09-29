@@ -14,7 +14,6 @@ import "./interfaces/IERC20.sol";
  * also use the lastUpdated timestamp to ensure data is fresh.
  */
 contract PolybitPriceOracle is Ownable {
-    string public oracleVersion;
     uint256 public oracleStatus;
     address internal factoryAddress;
     address internal tokenAddress;
@@ -22,7 +21,6 @@ contract PolybitPriceOracle is Ownable {
     uint256 internal lastUpdated;
 
     constructor(
-        string memory _oracleVersion,
         address _oracleOwner,
         address _tokenAddress,
         address _factoryAddress
@@ -32,7 +30,6 @@ contract PolybitPriceOracle is Ownable {
         require(address(_factoryAddress) != address(0));
         _transferOwnership(_oracleOwner);
         factoryAddress = _factoryAddress;
-        oracleVersion = _oracleVersion;
         tokenAddress = _tokenAddress;
     }
 

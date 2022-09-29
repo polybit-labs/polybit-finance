@@ -13,15 +13,13 @@ import "./Ownable.sol";
 contract PolybitDETFOracleFactory is Ownable {
     PolybitDETFOracle[] internal oracleArray;
     address[] internal oracleAddressList;
-    string public oracleVersion;
     address internal feeAddress = address(0);
     uint256 internal depositFee = 0;
     uint256 internal performanceFee = 0;
 
-    constructor(address _oracleOwner, string memory _oracleVersion) {
+    constructor(address _oracleOwner) {
         require(address(_oracleOwner) != address(0));
         _transferOwnership(_oracleOwner);
-        oracleVersion = _oracleVersion;
     }
 
     /**
@@ -34,7 +32,6 @@ contract PolybitDETFOracleFactory is Ownable {
         address polybitRouterAddress
     ) external onlyOwner {
         PolybitDETFOracle Oracle = new PolybitDETFOracle(
-            oracleVersion,
             owner(),
             strategyName,
             strategyId,
