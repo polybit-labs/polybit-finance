@@ -51,22 +51,18 @@ def get_coingecko_price(token_address):
 def add_base_tokens_to_router(router, account):
     router.addBaseToken(
         config["networks"][network.show_active()]["weth_address"],
-        "WETH",
         {"from": account},
     )
     router.addBaseToken(
         config["networks"][network.show_active()]["busd_address"],
-        "USD",
         {"from": account},
     )
     router.addBaseToken(
         config["networks"][network.show_active()]["usdt_address"],
-        "USD",
         {"from": account},
     )
     router.addBaseToken(
         config["networks"][network.show_active()]["usdc_address"],
-        "USD",
         {"from": account},
     )
 
@@ -120,7 +116,7 @@ def main():
         account,
         detf_oracle.address,
         detf_factory.address,
-        "rwEquallyBalanced",
+        0,
         rebalancer.address,
         router.address,
         lockDuration,
@@ -177,12 +173,7 @@ def main():
             owned_assets[i],
             "Target",
             round(
-                (
-                    detf_oracle.getTargetPercentage(
-                        owned_assets[i], "rwEquallyBalanced"
-                    )
-                    / 1000000
-                ),
+                (detf_oracle.getTargetPercentage(owned_assets[i], 0) / 10**8),
                 4,
             ),
             "Actual",
@@ -212,12 +203,7 @@ def main():
             owned_assets[i],
             "Target",
             round(
-                (
-                    detf_oracle.getTargetPercentage(
-                        owned_assets[i], "rwEquallyBalanced"
-                    )
-                    / 1000000
-                ),
+                (detf_oracle.getTargetPercentage(owned_assets[i], 0) / 10**8),
                 4,
             ),
             "Actual",
@@ -227,7 +213,7 @@ def main():
     """
     REBALANCE #3
     """
-    """ tx = detf.setRiskWeighting(1, {"from": account})
+    tx = detf.setRiskWeighting(1, {"from": account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
@@ -250,12 +236,9 @@ def main():
             owned_assets[i],
             "Target",
             round(
-                (
-                    detf_oracle.getTargetPercentage(owned_assets[i], "rwLiquidity")
-                    / 1000000
-                ),
+                (detf_oracle.getTargetPercentage(owned_assets[i], 1) / 10**8),
                 4,
             ),
             "Actual",
             round(token_balance_in_weth / total_balance, 4),
-        ) """
+        )

@@ -17,7 +17,7 @@ contract PolybitRebalancer {
     struct DETFInfo {
         address detfOracleAddress;
         address priceOracleAddress;
-        string riskWeighting;
+        uint256 riskWeighting;
         uint256 tokenPrice;
         uint256 tokenBalance;
         uint256 tokenBalanceInWeth;
@@ -137,7 +137,7 @@ contract PolybitRebalancer {
             for (uint256 i = 0; i < adjustList.length; i++) {
                 (, uint256 tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustList[i]);
-                uint256 tokenBalancePercentage = (10**6 * tokenBalanceInWeth) /
+                uint256 tokenBalancePercentage = (10**8 * tokenBalanceInWeth) /
                     totalBalance;
                 uint256 tokenTargetPercentage = IPolybitDETFOracle(
                     detfOracleAddress
@@ -179,7 +179,7 @@ contract PolybitRebalancer {
             for (uint256 i = 0; i < adjustList.length; i++) {
                 (, uint256 tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustList[i]);
-                uint256 tokenBalancePercentage = (10**6 * tokenBalanceInWeth) /
+                uint256 tokenBalancePercentage = (10**8 * tokenBalanceInWeth) /
                     totalBalance;
                 uint256 tokenTargetPercentage = IPolybitDETFOracle(
                     detfOracleAddress
@@ -259,14 +259,13 @@ contract PolybitRebalancer {
             .getTotalBalanceInWeth();
         address detfOracleAddress = IPolybitDETF(detfAddress)
             .getDETFOracleAddress();
-        string memory riskWeighting = IPolybitDETF(detfAddress)
-            .getRiskWeighting();
+        uint256 riskWeighting = IPolybitDETF(detfAddress).getRiskWeighting();
 
         for (uint256 i = 0; i < adjustToBuyList.length; i++) {
             if (adjustToBuyList[i] != address(0)) {
                 (, uint256 tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustToBuyList[i]);
-                uint256 tokenBalancePercentage = (10**6 * tokenBalanceInWeth) /
+                uint256 tokenBalancePercentage = (10**8 * tokenBalanceInWeth) /
                     totalBalance;
                 uint256 targetPercentage = IPolybitDETFOracle(detfOracleAddress)
                     .getTargetPercentage(adjustToBuyList[i], riskWeighting);
@@ -358,7 +357,7 @@ contract PolybitRebalancer {
                 ) = IPolybitDETF(detfAddress).getTokenBalance(
                         adjustToSellList[i]
                     );
-                uint256 tokenBalancePercentage = (10**6 * tokenBalanceInWeth) /
+                uint256 tokenBalancePercentage = (10**8 * tokenBalanceInWeth) /
                     totalBalance;
                 uint256 tokenTargetPercentage = IPolybitDETFOracle(
                     info.detfOracleAddress
@@ -386,7 +385,7 @@ contract PolybitRebalancer {
      * to buy orders.
      * @return adjustToBuyListAmountsOut is the list of amounts out for the adjust
      * to buy orders.
-     * @dev percentages are calculated to 4 decimals places using 10**6
+     * @dev percentages are calculated to 6 decimals places using 10**8
      */
     function createAdjustToBuyOrder(
         uint256 totalBalance,
@@ -423,12 +422,12 @@ contract PolybitRebalancer {
                             adjustToBuyList[i],
                             info.riskWeighting
                         ) -
-                    ((10**6 * info.tokenBalanceInWeth) / totalBalance);
+                    ((10**8 * info.tokenBalanceInWeth) / totalBalance);
 
-                uint256 percentageOfAvailableWeth = (10**6 *
+                uint256 percentageOfAvailableWeth = (10**8 *
                     info.targetPercentage) / totalTargetPercentage;
                 uint256 precisionAmountIn = (IPolybitDETF(detfAddress)
-                    .getWethBalance() * percentageOfAvailableWeth) / 10**6;
+                    .getWethBalance() * percentageOfAvailableWeth) / 10**8;
                 uint256 amountOut = (10**18 * precisionAmountIn) /
                     info.tokenPrice;
 
@@ -446,7 +445,7 @@ contract PolybitRebalancer {
      * @param detfAddress is the address of the DETF Oracle.
      * @return buyListAmountsIn is the list of amounts in for the buy orders.
      * @return buyListAmountsOut is the list of amounts out for the buy orders.
-     * @dev percentages are calculated to 4 decimals places using 10**6
+     * @dev percentages are calculated to 6 decimals places using 10**8
      */
     function createBuyOrder(
         address[] memory buyList,
@@ -470,10 +469,10 @@ contract PolybitRebalancer {
                 .getLatestPrice();
             info.targetPercentage = IPolybitDETFOracle(info.detfOracleAddress)
                 .getTargetPercentage(buyList[i], info.riskWeighting);
-            uint256 percentageOfAvailableWeth = (10**6 *
+            uint256 percentageOfAvailableWeth = (10**8 *
                 info.targetPercentage) / totalTargetPercentage;
             uint256 precisionAmountIn = (wethBalance *
-                percentageOfAvailableWeth) / 10**6;
+                percentageOfAvailableWeth) / 10**8;
             uint256 amountOut = (10**18 * precisionAmountIn) / info.tokenPrice;
 
             buyListAmountsIn[index] = precisionAmountIn;

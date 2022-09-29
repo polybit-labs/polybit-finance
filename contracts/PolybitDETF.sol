@@ -22,7 +22,7 @@ contract PolybitDETF {
     IPolybitRouter polybitRouter;
     address internal wethAddress;
     IWETH wethToken;
-    string internal riskWeighting;
+    uint256 internal riskWeighting;
     address[] internal ownedAssets;
     uint256 public totalDeposited = 0;
     uint256 internal lastRebalance = 0;
@@ -37,7 +37,7 @@ contract PolybitDETF {
     constructor(
         address _polybitDETFOracleAddress,
         address _polybitDETFOracleFactoryAddress,
-        string memory _riskWeighting,
+        uint256 _riskWeighting,
         address _polybitRebalancerAddress,
         address _polybitRouterAddress,
         uint256 _lockDuration
@@ -90,14 +90,14 @@ contract PolybitDETF {
             "Incorrect input for Risk Weighting. Try 0 (rwEquallyBalanced) or 1 (rwLiquidity)."
         );
         if (riskWeightingSelector == 0) {
-            riskWeighting = "rwEquallyBalanced";
+            riskWeighting = 0;
         }
         if (riskWeightingSelector == 1) {
-            riskWeighting = "rwLiquidity";
+            riskWeighting = 1;
         }
     }
 
-    function getRiskWeighting() external view returns (string memory) {
+    function getRiskWeighting() external view returns (uint256) {
         return riskWeighting;
     }
 
@@ -377,6 +377,10 @@ contract PolybitDETF {
             tokenAmountOut,
             recipient
         );
+        require(
+            token.approve(address(polybitRouterAddress), 0),
+            "TOKEN revoke approval failed"
+        );
     }
 
     event EthWrap(string msg, uint256 amount);
@@ -397,6 +401,10 @@ contract PolybitDETF {
             "WETH Token approve failed."
         );
         wethToken.withdraw(wethBalance);
+        require(
+            wethToken.approve(address(this), 0),
+            "WETH Token revoke approval failed."
+        );
     }
 
     event TransferToClose(string msg, uint256 ref);

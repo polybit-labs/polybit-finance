@@ -4,7 +4,7 @@ pragma solidity >=0.8.7;
 interface IPolybitDETF {
     function getDETFOracleAddress() external view returns (address);
 
-    function getRiskWeighting() external view returns (string memory);
+    function getRiskWeighting() external view returns (uint256);
 
     function getOwnedAssets() external view returns (address[] memory);
 

@@ -27,10 +27,10 @@ interface IPolybitDETFOracle {
 
     function getTotalLiquidity() external view returns (uint256);
 
-    function getTargetPercentage(
-        address tokenAddress,
-        string memory riskWeighting
-    ) external view returns (uint256);
+    function getTargetPercentage(address tokenAddress, uint256 riskWeighting)
+        external
+        view
+        returns (uint256);
 
     function getLastUpdated() external view returns (uint256);
 }

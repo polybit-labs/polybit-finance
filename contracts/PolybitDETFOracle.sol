@@ -223,7 +223,7 @@ contract PolybitDETFOracle is Ownable {
         returns (uint256)
     {
         liquidityInfo memory info;
-
+        info.liquidity = 0;
         info.priceOracleAddress = getPriceOracleAddress(tokenAddress);
         info.pairAddress = getPairAddress(baseToken, tokenAddress);
         IUniswapV2Pair tokenPair = IUniswapV2Pair(info.pairAddress);
@@ -245,21 +245,11 @@ contract PolybitDETFOracle is Ownable {
                 info.baseTokenBalance = info.reserve0;
                 info.tokenBalance = info.reserve1;
             }
-
-            if (
-                keccak256(
-                    abi.encodePacked(polybitRouter.getBaseTokenType(baseToken))
-                ) == keccak256(abi.encodePacked("WETH"))
-            ) {
+            if (baseToken == polybitRouter.getWethAddress()) {
                 info.liquidity = (info.baseTokenBalance +
                     ((info.tokenBalance * info.tokenPrice) /
                         10**info.tokenDecimals));
-            }
-            if (
-                keccak256(
-                    abi.encodePacked(polybitRouter.getBaseTokenType(baseToken))
-                ) == keccak256(abi.encodePacked("USD"))
-            ) {
+            } else {
                 info.liquidity =
                     ((info.tokenBalance * info.tokenPrice) /
                         10**info.tokenDecimals) *
@@ -310,7 +300,7 @@ contract PolybitDETFOracle is Ownable {
      */
     function getRwEquallyBalanced() internal view returns (uint256) {
         uint256 targetAssets = getTargetList().length;
-        uint256 rwEquallyBalanced = (1000000 * 1) / targetAssets;
+        uint256 rwEquallyBalanced = (10**8 * 1) / targetAssets;
         return rwEquallyBalanced;
     }
 
@@ -327,7 +317,7 @@ contract PolybitDETFOracle is Ownable {
     {
         uint256 tokenLiquidity = getTokenLiquidity(tokenAddress);
         uint256 totalLiquidity = getTotalLiquidity();
-        uint256 rwLiquidity = (1000000 * tokenLiquidity) / totalLiquidity;
+        uint256 rwLiquidity = (10**8 * tokenLiquidity) / totalLiquidity;
         return rwLiquidity;
     }
 
@@ -335,21 +325,16 @@ contract PolybitDETFOracle is Ownable {
      * @return target is the target percentage of the token based on the
      * chosen risk weighting.
      */
-    function getTargetPercentage(
-        address tokenAddress,
-        string memory riskWeighting
-    ) external view returns (uint256) {
+    function getTargetPercentage(address tokenAddress, uint256 riskWeighting)
+        external
+        view
+        returns (uint256)
+    {
         uint256 target = 0;
-        if (
-            keccak256(abi.encodePacked(riskWeighting)) ==
-            keccak256(abi.encodePacked("rwEquallyBalanced"))
-        ) {
+        if (riskWeighting == 0) {
             target = getRwEquallyBalanced();
         }
-        if (
-            keccak256(abi.encodePacked(riskWeighting)) ==
-            keccak256(abi.encodePacked("rwLiquidity"))
-        ) {
+        if (riskWeighting == 1) {
             target = getRwLiquidity(tokenAddress);
         }
         return target;

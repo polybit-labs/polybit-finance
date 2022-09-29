@@ -8,11 +8,6 @@ interface IPolybitRouter {
 
     function getBaseTokens() external view returns (address[] memory);
 
-    function getBaseTokenType(address tokenAddress)
-        external
-        view
-        returns (string memory);
-
     function liquidPath(
         address tokenIn,
         address tokenOut,

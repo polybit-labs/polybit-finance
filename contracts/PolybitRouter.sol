@@ -13,14 +13,13 @@ contract PolybitRouter is Ownable {
 
     address internal immutable swapFactory;
     address internal immutable weth;
-    uint256 public slippage = 200;
+    uint256 public slippage = 500;
 
     modifier ensure(uint256 deadline) {
         require(deadline >= block.timestamp, "PolybitRouter: EXPIRED");
         _;
     }
     address[] internal baseTokens;
-    mapping(address => string) internal baseTokenType;
 
     constructor(
         address _routerOwner,
@@ -43,10 +42,7 @@ contract PolybitRouter is Ownable {
         return weth;
     }
 
-    function addBaseToken(address tokenAddress, string memory tokenType)
-        external
-        onlyOwner
-    {
+    function addBaseToken(address tokenAddress) external onlyOwner {
         bool tokenExists = false;
         if (baseTokens.length > 0) {
             for (uint256 i = 0; i < baseTokens.length; i++) {
@@ -57,7 +53,6 @@ contract PolybitRouter is Ownable {
         }
         require(!tokenExists, "Base token already exists.");
         baseTokens.push(address(tokenAddress));
-        baseTokenType[tokenAddress] = tokenType;
     }
 
     function removeBaseToken(address tokenAddress) external onlyOwner {
@@ -84,14 +79,6 @@ contract PolybitRouter is Ownable {
 
     function getBaseTokens() external view returns (address[] memory) {
         return baseTokens;
-    }
-
-    function getBaseTokenType(address tokenAddress)
-        external
-        view
-        returns (string memory)
-    {
-        return baseTokenType[tokenAddress];
     }
 
     function setSlippage(uint256 _slippage) external onlyOwner {
@@ -192,7 +179,8 @@ contract PolybitRouter is Ownable {
         Insert exception for when there is not enough liquidity in any path.
          */
 
-        uint256 amountOutMinimum = ((10000 - 500) * tokenAmountOut) / 10000; // e.g. 0.05% calculated as 50/10000
+        uint256 amountOutMinimum = ((10000 - slippage) * tokenAmountOut) /
+            10000; // e.g. 0.05% calculated as 50/10000
         uint256 deadline = block.timestamp + 15;
 
         emit LiquidPath(
