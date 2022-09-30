@@ -28,7 +28,7 @@ contract PolybitDETFOracleFactory is Ownable {
      */
     function createOracle(
         string memory strategyName,
-        string memory strategyId,
+        uint256 strategyId,
         address polybitRouterAddress
     ) external onlyOwner {
         PolybitDETFOracle Oracle = new PolybitDETFOracle(
@@ -59,6 +59,7 @@ contract PolybitDETFOracleFactory is Ownable {
 
     function setDepositFee(uint256 fee) external onlyOwner {
         // Fees use 2 decimal places e.g. (50 / 10000) = 0.5%
+        emit FeeSetter("Set Deposit Fee", fee);
         depositFee = fee;
     }
 
@@ -66,8 +67,11 @@ contract PolybitDETFOracleFactory is Ownable {
         return depositFee;
     }
 
+    event FeeSetter(string msg, uint256 ref);
+
     function setPerformanceFee(uint256 fee) external onlyOwner {
         // Fees use 2 decimal places e.g. (50 / 10000) = 0.5%
+        emit FeeSetter("Set Performance Fee", fee);
         performanceFee = fee;
     }
 
@@ -76,6 +80,10 @@ contract PolybitDETFOracleFactory is Ownable {
     }
 
     function setFeeAddress(address _feeAddress) external onlyOwner {
+        require(
+            _feeAddress != address(0),
+            ("PolybitDETFOracleFactory: FEE_ADDRESS_INVALID")
+        );
         feeAddress = _feeAddress;
     }
 

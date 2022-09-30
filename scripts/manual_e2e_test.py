@@ -108,8 +108,10 @@ def main():
     detf_factory = deploy_DETF_oracle_factory.main(account)
 
     detf_oracle = deploy_DETF_oracle_from_factory.main(
-        account, detf_factory.address, "Test DETF Name", "Tes DETF ID", router.address
+        account, detf_factory.address, "Test DETF Name", 100, router.address
     )
+    detf_oracle.setOracleStatus(1, {"from": account})
+
     rebalancer = deploy_rebalancer.main(account)
 
     lockDuration = 10
