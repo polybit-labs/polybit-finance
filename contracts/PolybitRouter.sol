@@ -2,8 +2,6 @@
 pragma solidity >=0.8.7;
 
 import "./libraries/UniswapV2Library.sol";
-import "./interfaces/IPolybitRouter.sol";
-import "./interfaces/IPolybitDETFOracle.sol";
 import "./libraries/TransferHelper.sol";
 import "./libraries/SafeMath.sol";
 import "./Ownable.sol";

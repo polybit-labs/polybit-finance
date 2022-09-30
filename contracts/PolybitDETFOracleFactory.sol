@@ -18,7 +18,10 @@ contract PolybitDETFOracleFactory is Ownable {
     uint256 internal performanceFee = 0;
 
     constructor(address _oracleOwner) {
-        require(address(_oracleOwner) != address(0));
+        require(
+            address(_oracleOwner) != address(0),
+            "PolybitDETFOracle: OWNER_ADDRESS_INVALID"
+        );
         _transferOwnership(_oracleOwner);
     }
 

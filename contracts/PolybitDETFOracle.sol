@@ -61,13 +61,22 @@ contract PolybitDETFOracle is Ownable {
         address _polybitDETFOracleFactoryAddress,
         address _polybitRouterAddress
     ) {
-        require(address(_oracleOwner) != address(0));
+        require(
+            address(_oracleOwner) != address(0),
+            "PolybitDETFOracle: OWNER_ADDRESS_INVALID"
+        );
         _transferOwnership(_oracleOwner);
         detfName = _detfName;
         detfId = _detfId;
-        require(address(_polybitDETFOracleFactoryAddress) != address(0));
+        require(
+            address(_polybitDETFOracleFactoryAddress) != address(0),
+            "PolybitDETFOracle: ORACLE_FACTORY_ADDRESS_INVALID"
+        );
         polybitDETFOracleFactoryAddress = _polybitDETFOracleFactoryAddress;
-        require(address(_polybitRouterAddress) != address(0));
+        require(
+            address(_polybitRouterAddress) != address(0),
+            "PolybitDETFOracle: ROUTER_ADDRESS_INVALID"
+        );
         polybitRouterAddress = _polybitRouterAddress;
         polybitRouter = IPolybitRouter(_polybitRouterAddress);
         swapFactoryAddress = polybitRouter.getSwapFactory();
@@ -76,6 +85,7 @@ contract PolybitDETFOracle is Ownable {
     }
 
     event SetStatus(string msg, uint256 ref);
+    event SetAddress(string msg, address ref);
 
     /**
      * @notice Used to set the status of the Oracle so the consumer knows
@@ -103,7 +113,19 @@ contract PolybitDETFOracle is Ownable {
     }
 
     /**
-     * @return polybitRouterAddress is the address of the Oracle Factory
+     * @param routerAddress is the address of the new Oracle Router
+     */
+    function setRouterAddress(address routerAddress) external onlyOwner {
+        require(
+            routerAddress != address(0),
+            "PolybitDETFOracle: ROUTER_ADDRESS_INVALID"
+        );
+        emit SetAddress("Router Address Set", routerAddress);
+        polybitRouterAddress = routerAddress;
+    }
+
+    /**
+     * @return polybitRouterAddress is the address of the Oracle Router
      */
     function getRouterAddress() external view returns (address) {
         return polybitRouterAddress;
@@ -145,7 +167,7 @@ contract PolybitDETFOracle is Ownable {
                 }
             }
         }
-        require(!assetExists, "Asset already exists.");
+        require(!assetExists, "PolybitDETFOracle: ASSET_ALREADY_EXISTS");
         assets.push(
             Assets({
                 tokenAddress: tokenAddress,
@@ -173,7 +195,7 @@ contract PolybitDETFOracle is Ownable {
                 }
             }
         }
-        require(assetExists, "Asset does not exist.");
+        require(assetExists, "PolybitDETFOracle: ASSET_DOES_NOT_EXIST");
         for (uint256 i = 0; i < assets.length; i++) {
             if (address(tokenAddress) == address(assets[i].tokenAddress)) {
                 require(i < assets.length);
@@ -202,7 +224,7 @@ contract PolybitDETFOracle is Ownable {
      * any owned tokens.
      */
     function getTargetList() public view returns (address[] memory) {
-        address[] memory target;
+        address[] memory target = new address[](0);
         if (oracleStatus == 1) {
             target = targetAssetList;
         }

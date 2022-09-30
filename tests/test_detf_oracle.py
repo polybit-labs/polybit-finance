@@ -307,6 +307,57 @@ def test_inactive_oracle_target_list__owner():
 
 
 """
+Test changing the router address, by the Owner account
+"""
+
+
+def test_changing_router_address__owner():
+    router = deploy_router.main(
+        OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
+    )
+    oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
+    detf_oracle = deploy_DETF_oracle_from_factory.main(
+        OWNER, oracle_factory.address, TEST_DETF_NAME, TEST_DETF_ID, router.address
+    )
+
+    assert detf_oracle.getRouterAddress() == router.address
+
+    new_router = deploy_router.main(
+        OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
+    )
+
+    detf_oracle.setRouterAddress(new_router.address, {"from": OWNER})
+
+    assert detf_oracle.getRouterAddress() == new_router.address
+
+
+"""
+Test changing the router address, with an account that is not the Owner
+"""
+
+
+def test_changing_router_address__non_owner():
+    router = deploy_router.main(
+        OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
+    )
+    oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
+    detf_oracle = deploy_DETF_oracle_from_factory.main(
+        OWNER, oracle_factory.address, TEST_DETF_NAME, TEST_DETF_ID, router.address
+    )
+
+    assert detf_oracle.getRouterAddress() == router.address
+
+    new_router = deploy_router.main(
+        OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
+    )
+
+    with pytest.raises(exceptions.VirtualMachineError):
+        detf_oracle.setRouterAddress(new_router.address, {"from": NON_OWNER})
+
+        assert detf_oracle.getRouterAddress() == new_router.address
+
+
+"""
 Test transfer owner
 """
 
