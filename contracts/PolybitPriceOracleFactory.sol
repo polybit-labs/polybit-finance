@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.4;
 
 import "./PolybitPriceOracle.sol";
@@ -15,7 +15,10 @@ contract PolybitPriceOracleFactory is Ownable {
     address[] internal oracleAddressList;
 
     constructor(address _oracleOwner) {
-        require(address(_oracleOwner) != address(0));
+        require(
+            address(_oracleOwner) != address(0),
+            "PolybitPriceOracle: OWNER_ADDRESS_INVALID"
+        );
         _transferOwnership(_oracleOwner);
     }
 

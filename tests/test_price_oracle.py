@@ -14,15 +14,6 @@ TEST_TOKEN_SYMBOL = "BTCB"
 TEST_TOKEN_PRICE = 1000000000000000000
 TEST_TOKEN_DECIMALS = 18
 
-"""
-Test deploying the Oracle Factory, by the Owner account
-"""
-
-
-def test_deploy_price_oracle_factory__owner():
-    oracle_factory = deploy_price_oracle_factory.main(OWNER)
-    assert oracle_factory.owner() == OWNER
-
 
 """
 Test deploying a Price Oracle from the Oracle Factory, by the Owner account

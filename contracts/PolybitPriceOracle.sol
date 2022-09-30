@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.4;
 
 import "./Ownable.sol";
@@ -14,7 +14,7 @@ import "./interfaces/IERC20.sol";
  * also use the lastUpdated timestamp to ensure data is fresh.
  */
 contract PolybitPriceOracle is Ownable {
-    uint256 public oracleStatus;
+    uint256 internal oracleStatus;
     address internal factoryAddress;
     address internal tokenAddress;
     uint256 internal latestPrice;
@@ -25,9 +25,18 @@ contract PolybitPriceOracle is Ownable {
         address _tokenAddress,
         address _factoryAddress
     ) {
-        require(address(_oracleOwner) != address(0));
-        require(address(_tokenAddress) != address(0));
-        require(address(_factoryAddress) != address(0));
+        require(
+            address(_oracleOwner) != address(0),
+            "PolybitDETFOracle: OWNER_ADDRESS_INVALID"
+        );
+        require(
+            address(_tokenAddress) != address(0),
+            "PolybitDETFOracle: TOKEN_ADDRESS_INVALID"
+        );
+        require(
+            address(_factoryAddress) != address(0),
+            "PolybitDETFOracle: FACTORY_ADDRESS_INVALID"
+        );
         _transferOwnership(_oracleOwner);
         factoryAddress = _factoryAddress;
         tokenAddress = _tokenAddress;
@@ -50,6 +59,8 @@ contract PolybitPriceOracle is Ownable {
         emit TokenPriceChange("Price updated", latestPrice, lastUpdated);
     }
 
+    event SetStatus(string msg, uint256 ref);
+
     /**
      * @notice Used to set the status of the Oracle so the consumer knows
      * if it is actively being updated.
@@ -57,6 +68,7 @@ contract PolybitPriceOracle is Ownable {
      * @dev Functions should revert if oracleStatus != 1.
      */
     function setOracleStatus(uint256 status) external onlyOwner {
+        emit SetStatus("Oracle Status Set", status);
         oracleStatus = status;
     }
 
