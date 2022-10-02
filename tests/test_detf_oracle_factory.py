@@ -10,7 +10,7 @@ from scripts import (
 OWNER = get_account(type="owner")
 NON_OWNER = get_account(type="non_owner")
 TEST_DETF_NAME = "Test Name"
-TEST_DETF_ID = "Test ID"
+TEST_DETF_ID = 100
 TEST_DETF_WETH_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
 TEST_DETF_SWAP_FACTORY_ADDRESS = "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
 TEST_TOKEN_SYMBOL = "BTCB"

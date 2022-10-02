@@ -65,7 +65,7 @@ def test_change_price_oracle_status__owner():
     for i in range(0, len(tx0.events)):
         print(tx0.events[i])
 
-    assert price_oracle.oracleStatus() == 1
+    assert price_oracle.getOracleStatus() == 1
 
 
 """
