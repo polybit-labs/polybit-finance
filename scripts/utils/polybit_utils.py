@@ -22,7 +22,7 @@ def get_account(index=None, id=None, type=None):
     if id:
         return accounts.load(id)
     if (type == "owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
-        return accounts[0]
+        return accounts[2]
     if (type == "non_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
         return accounts[1]
     if type == "owner":

@@ -3,23 +3,24 @@ pragma solidity >=0.8.7;
 
 import "./interfaces/IPolybitPriceOracle.sol";
 import "./interfaces/IPolybitDETFOracle.sol";
-import "./interfaces/IPolybitDETFOracleFactory.sol";
+import "./interfaces/IPolybitDETFFactory.sol";
 import "./interfaces/IPolybitRebalancer.sol";
 import "./interfaces/IPolybitRouter.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/SafeERC20.sol";
+import "./Ownable.sol";
 
-contract PolybitDETF {
-    address public owner;
+contract PolybitDETF is Ownable {
+    address public walletOwner;
     address public polybitDETFOracleAddress;
     IPolybitDETFOracle polybitDETFOracle;
-    address public polybitDETFOracleFactoryAddress;
-    IPolybitDETFOracleFactory polybitDETFOracleFactory;
-    address public polybitRebalancerAddress;
+    address public polybitDETFFactoryAddress;
+    IPolybitDETFFactory polybitDETFFactory;
+    /* address public polybitRebalancerAddress;
     IPolybitRebalancer polybitRebalancer;
     address public polybitRouterAddress;
-    IPolybitRouter polybitRouter;
+    IPolybitRouter polybitRouter; */
     address internal wethAddress;
     IWETH wethToken;
     uint256 internal riskWeighting;
@@ -35,29 +36,33 @@ contract PolybitDETF {
     using SafeERC20 for IWETH;
 
     constructor(
+        address _owner,
+        address _walletOwner,
         address _polybitDETFOracleAddress,
-        address _polybitDETFOracleFactoryAddress,
+        address _polybitDETFFactoryAddress,
         uint256 _riskWeighting,
-        address _polybitRebalancerAddress,
-        address _polybitRouterAddress,
+        /* address _polybitRebalancerAddress,
+        address _polybitRouterAddress, */
         uint256 _lockDuration
     ) {
+        require(address(_owner) != address(0));
+        require(address(_walletOwner) != address(0));
         require(address(_polybitDETFOracleAddress) != address(0));
-        require(address(_polybitDETFOracleFactoryAddress) != address(0));
-        require(address(_polybitRebalancerAddress) != address(0));
-        require(address(_polybitRouterAddress) != address(0));
+        require(address(_polybitDETFFactoryAddress) != address(0));
+        /* require(address(_polybitRebalancerAddress) != address(0));
+        require(address(_polybitRouterAddress) != address(0)); */
+        _transferOwnership(_owner);
+        walletOwner = _walletOwner;
         polybitDETFOracleAddress = _polybitDETFOracleAddress;
         polybitDETFOracle = IPolybitDETFOracle(polybitDETFOracleAddress);
-        polybitDETFOracleFactoryAddress = _polybitDETFOracleFactoryAddress;
-        polybitDETFOracleFactory = IPolybitDETFOracleFactory(
-            polybitDETFOracleFactoryAddress
-        );
-        polybitRebalancerAddress = _polybitRebalancerAddress;
+        polybitDETFFactoryAddress = _polybitDETFFactoryAddress;
+        polybitDETFFactory = IPolybitDETFFactory(polybitDETFFactoryAddress);
+        /* polybitRebalancerAddress = _polybitRebalancerAddress;
         polybitRebalancer = IPolybitRebalancer(polybitRebalancerAddress);
         polybitRouterAddress = _polybitRouterAddress;
-        polybitRouter = IPolybitRouter(polybitRouterAddress);
+        polybitRouter = IPolybitRouter(polybitRouterAddress); */
         riskWeighting = _riskWeighting;
-        wethAddress = polybitRouter.getWethAddress();
+        wethAddress = polybitDETFFactory.getWethAddress();
         wethToken = IWETH(wethAddress);
         unlockTime = block.timestamp + _lockDuration;
         require(
@@ -72,16 +77,6 @@ contract PolybitDETF {
 
     function getDETFOracleAddress() external view returns (address) {
         return polybitDETFOracleAddress;
-    }
-
-    function setPolybitRebalancerAddress(address rebalancerAddress) external {
-        require(address(rebalancerAddress) != address(0));
-        polybitRebalancerAddress = rebalancerAddress;
-    }
-
-    function setPolybitRouterAddress(address routerAddress) external {
-        require(address(routerAddress) != address(0));
-        polybitRouterAddress = routerAddress;
     }
 
     function setRiskWeighting(uint8 riskWeightingSelector) external {
@@ -182,6 +177,11 @@ contract PolybitDETF {
             address[] memory
         )
     {
+        address polybitRebalancerAddress = polybitDETFFactory
+            .getPolybitRebalancerAddress();
+        IPolybitRebalancer polybitRebalancer = IPolybitRebalancer(
+            polybitRebalancerAddress
+        );
         address[] memory targetList = polybitDETFOracle.getTargetList();
         address[] memory sellList = polybitRebalancer.createSellList(
             ownedAssets,
@@ -220,8 +220,8 @@ contract PolybitDETF {
             wrapETH();
             processFee(
                 getWethBalance(),
-                polybitDETFOracleFactory.getDepositFee(),
-                polybitDETFOracleFactory.getFeeAddress()
+                polybitDETFFactory.getDepositFee(),
+                polybitDETFFactory.getFeeAddress()
             );
         }
         lastRebalance = block.timestamp;
@@ -260,7 +260,7 @@ contract PolybitDETF {
     event Deposited(string msg, uint256 ref);
     event LiquidityTest(string msg);
 
-    function rebalance() external {
+    /* function rebalance() external {
         checkForDeposits();
 
         uint256 totalBalance = getTotalBalanceInWeth();
@@ -281,7 +281,7 @@ contract PolybitDETF {
 
             for (uint256 i = 0; i < sellList.length; i++) {
                 if (sellList[i] != address(0)) {
-                    address[] memory path = polybitRouter.getLiquidPath(
+                    address[] memory path = IPolybitRouter(polybitDETFFactory.getPolybitRouterAddress()).getLiquidPath(
                         sellList[i],
                         wethAddress,
                         sellListAmountsIn[i],
@@ -406,13 +406,16 @@ contract PolybitDETF {
                 }
             }
         }
-    }
+    } */
 
     function swap(
         uint256 amountIn,
         uint256 amountOut,
         address[] memory path
     ) public {
+        address polybitRouterAddress = polybitDETFFactory
+            .getPolybitRouterAddress();
+        IPolybitRouter polybitRouter = IPolybitRouter(polybitRouterAddress);
         uint256 amountOutMin = ((10000 - polybitRouter.getSlippage()) *
             amountOut) / 10000; // e.g. 0.05% calculated as 50/10000
         uint256 deadline = block.timestamp + 15;
@@ -476,8 +479,7 @@ contract PolybitDETF {
 
         if (totalBalanceInWeth > totalDeposited) {
             uint256 profit = totalBalanceInWeth - totalDeposited;
-            uint256 performanceFee = polybitDETFOracleFactory
-                .getPerformanceFee();
+            uint256 performanceFee = polybitDETFFactory.getPerformanceFee();
             uint256 performanceFeeAmount = (performanceFee * profit) / 10000;
             uint256 performanceFeePercentage = (performanceFeeAmount /
                 totalBalanceInWeth) * 10000;
@@ -490,7 +492,7 @@ contract PolybitDETF {
                     "Transferred to DETF owner:",
                     transferAmount
                 );
-                IERC20(ownedAssetList[i]).safeTransfer(owner, transferAmount);
+                IERC20(ownedAssetList[i]).safeTransfer(owner(), transferAmount);
 
                 uint256 transferFeeAmount = tokenBalance - transferAmount;
                 emit TransferToClose(
@@ -498,7 +500,7 @@ contract PolybitDETF {
                     transferFeeAmount
                 );
                 IERC20(ownedAssetList[i]).safeTransfer(
-                    polybitDETFOracleFactory.getFeeAddress(),
+                    polybitDETFFactory.getFeeAddress(),
                     transferFeeAmount
                 );
             }
@@ -511,7 +513,7 @@ contract PolybitDETF {
                     "WETH transferred to DETF owner:",
                     transferAmount
                 );
-                IERC20(wethAddress).safeTransfer(owner, transferAmount);
+                IERC20(wethAddress).safeTransfer(owner(), transferAmount);
 
                 uint256 transferFeeAmount = wethBalance - transferAmount;
                 emit TransferToClose(
@@ -519,7 +521,7 @@ contract PolybitDETF {
                     transferFeeAmount
                 );
                 IERC20(wethAddress).safeTransfer(
-                    polybitDETFOracleFactory.getFeeAddress(),
+                    polybitDETFFactory.getFeeAddress(),
                     transferFeeAmount
                 );
             }
@@ -527,7 +529,7 @@ contract PolybitDETF {
             for (uint256 i = 0; i < ownedAssetList.length; i++) {
                 uint256 tokenBalance = 0;
                 (tokenBalance, ) = getTokenBalance(ownedAssetList[i]);
-                IERC20(ownedAssetList[i]).safeTransfer(owner, tokenBalance);
+                IERC20(ownedAssetList[i]).safeTransfer(owner(), tokenBalance);
                 emit TransferToClose(
                     "Transferred to DETF owner without fee:",
                     tokenBalance
@@ -535,7 +537,7 @@ contract PolybitDETF {
 
                 uint256 wethBalance = getWethBalance();
                 if (wethBalance > 0) {
-                    IERC20(wethAddress).safeTransfer(owner, wethBalance);
+                    IERC20(wethAddress).safeTransfer(owner(), wethBalance);
                 }
                 emit TransferToClose(
                     "WETH transferred to DETF owner without fee:",
@@ -548,7 +550,7 @@ contract PolybitDETF {
         emit TransferToClose("ETH balance:", ethBalance);
 
         if (ethBalance > 0) {
-            (bool sent, ) = owner.call{value: ethBalance}("");
+            (bool sent, ) = owner().call{value: ethBalance}("");
             require(sent, "Failed to send ETH");
             emit TransferToClose(
                 "ETH amount returned to wallet owner:",

@@ -20,4 +20,14 @@ interface IPolybitDETF {
         returns (uint256, uint256);
 
     function getTotalBalanceInWeth() external view returns (uint256);
+
+    function getRebalancerLists()
+        external
+        view
+        returns (
+            address[] memory,
+            address[] memory,
+            address[] memory,
+            address[] memory
+        );
 }

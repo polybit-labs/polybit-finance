@@ -1,11 +1,13 @@
 from scripts import (
-    deploy_DETF,
+    # deploy_DETF,
+    deploy_rebalancer,
+    deploy_router,
     deploy_price_oracle_factory,
     deploy_price_oracle_from_factory,
     deploy_DETF_oracle_factory,
     deploy_DETF_oracle_from_factory,
-    deploy_rebalancer,
-    deploy_router,
+    deploy_DETF_factory,
+    deploy_DETF_from_factory,
 )
 from scripts.utils.polybit_utils import get_account
 from brownie import config, network, Contract, PolybitPriceOracle
@@ -93,8 +95,139 @@ def add_assets_to_detf_oracle(account, oracle, price_oracles):
         )
 
 
+def rebalance(account, detf, rebalancer, router):
+    detf.checkForDeposits({"from": account})
+    (sellList, adjustToSellList, adjustToBuyList, buyList) = detf.getRebalancerLists()
+
+    if len(sellList) > 0:
+        (sellListAmountsIn, sellListAmountsOut) = rebalancer.createSellOrder(
+            sellList, detf.address
+        )
+
+        for i in range(0, len(sellList)):
+            if sellList[i] != "0x0000000000000000000000000000000000000000":
+                path = router.getLiquidPath(
+                    sellList[i],
+                    router.getWethAddress(),
+                    sellListAmountsIn[i],
+                    sellListAmountsOut[i],
+                )
+                if len(path) > 0:
+                    print("Sell", sellListAmountsIn[i], sellListAmountsOut[i], path)
+                    detf.swap(
+                        sellListAmountsIn[i],
+                        sellListAmountsOut[i],
+                        path,
+                        {"from": account},
+                    )
+                else:
+                    print("PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY")
+
+    if len(adjustToSellList) > 0:
+        (
+            adjustToSellListAmountsIn,
+            adjustToSellListAmountsOut,
+        ) = rebalancer.createAdjustToSellOrder(adjustToSellList, detf.address)
+
+        for i in range(0, len(adjustToSellList)):
+            if adjustToSellList[i] != "0x0000000000000000000000000000000000000000":
+                path = router.getLiquidPath(
+                    adjustToSellList[i],
+                    router.getWethAddress(),
+                    adjustToSellListAmountsIn[i],
+                    adjustToSellListAmountsOut[i],
+                )
+                if len(path) > 0:
+                    print(
+                        "Adjust To Sell",
+                        adjustToSellListAmountsIn[i],
+                        adjustToSellListAmountsOut[i],
+                        path,
+                    )
+                    detf.swap(
+                        adjustToSellListAmountsIn[i],
+                        adjustToSellListAmountsOut[i],
+                        path,
+                        {"from": account},
+                    )
+                else:
+                    print("PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY")
+
+    # Begin buy orders
+    (wethBalance, totalTargetPercentage) = rebalancer.calcTotalTargetBuyPercentage(
+        adjustToBuyList, buyList, detf.address
+    )
+
+    if len(adjustToBuyList) > 0:
+        (
+            adjustToBuyListAmountsIn,
+            adjustToBuyListAmountsOut,
+        ) = rebalancer.createAdjustToBuyOrder(
+            adjustToBuyList, totalTargetPercentage, detf.address
+        )
+
+        for i in range(0, len(adjustToBuyList)):
+            if adjustToBuyList[i] != "0x0000000000000000000000000000000000000000":
+                path = router.getLiquidPath(
+                    router.getWethAddress(),
+                    adjustToBuyList[i],
+                    adjustToBuyListAmountsIn[i],
+                    adjustToBuyListAmountsOut[i],
+                )
+                if len(path) > 0:
+                    print(
+                        "Adjust To Buy",
+                        adjustToBuyListAmountsIn[i],
+                        adjustToBuyListAmountsOut[i],
+                        path,
+                    )
+                    detf.swap(
+                        adjustToBuyListAmountsIn[i],
+                        adjustToBuyListAmountsOut[i],
+                        path,
+                        {"from": account},
+                    )
+                else:
+                    print("PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY")
+
+    if len(buyList) > 0:
+        (buyListAmountsIn, buyListAmountsOut) = rebalancer.createBuyOrder(
+            buyList, wethBalance, totalTargetPercentage, detf.address
+        )
+
+        for i in range(0, len(buyList)):
+            if buyList[i] != "0x0000000000000000000000000000000000000000":
+                path = router.getLiquidPath(
+                    router.getWethAddress(),
+                    buyList[i],
+                    buyListAmountsIn[i],
+                    buyListAmountsOut[i],
+                )
+                if len(path) > 0:
+                    print(
+                        "Buy",
+                        buyListAmountsIn[i],
+                        buyListAmountsOut[i],
+                        path,
+                    )
+                    detf.swap(
+                        buyListAmountsIn[i],
+                        buyListAmountsOut[i],
+                        path,
+                        {"from": account},
+                    )
+                else:
+                    print("PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY")
+
+    detf.updateOwnedAssetsForRebalance(
+        adjustToSellList, adjustToBuyList, buyList, {"from": account}
+    )
+
+
 def main():
     account = get_account(type="owner")
+    print("Account Owner Address", account.address)
+    rebalancer = deploy_rebalancer.main(account)
     router = deploy_router.main(
         account,
         config["networks"][network.show_active()]["pancakeswap_factory_address"],
@@ -105,30 +238,51 @@ def main():
     price_oracle_factory = deploy_price_oracle_factory.main(account)
     price_oracles = deploy_price_oracles(account, price_oracle_factory)
 
-    detf_factory = deploy_DETF_oracle_factory.main(account)
-
+    detf_oracle_factory = deploy_DETF_oracle_factory.main(account)
     detf_oracle = deploy_DETF_oracle_from_factory.main(
-        account, detf_factory.address, "Test DETF Name", 100, router.address
+        account, detf_oracle_factory.address, "Test DETF Name", 100, router.address
     )
     detf_oracle.setOracleStatus(1, {"from": account})
+    add_assets_to_detf_oracle(account, detf_oracle, price_oracles)
 
-    rebalancer = deploy_rebalancer.main(account)
+    detf_factory = deploy_DETF_factory.main(
+        account, config["networks"][network.show_active()]["weth_address"]
+    )
+
+    detf_factory.setPolybitRebalancerAddress(rebalancer.address, {"from": account})
+    detf_factory.setPolybitRouterAddress(router.address, {"from": account})
 
     lockDuration = 10
+    riskWeighting = 0
+    detf = deploy_DETF_from_factory.main(
+        account,
+        detf_factory.address,
+        account.address,
+        detf_oracle.address,
+        riskWeighting,
+        lockDuration,
+    )
 
-    detf = deploy_DETF.main(
+    detf2 = deploy_DETF_from_factory.main(
+        account,
+        detf_factory.address,
+        account.address,
+        detf_oracle.address,
+        riskWeighting,
+        lockDuration,
+    )
+
+    print("DETFs owned by Account", detf_factory.getDETFAccounts(account.address))
+
+    """ detf = deploy_DETF.main(
         account,
         detf_oracle.address,
-        detf_factory.address,
+        detf_oracle_factory.address,
         0,
         rebalancer.address,
         router.address,
         lockDuration,
-    )
-
-    add_assets_to_detf_oracle(account, detf_oracle, price_oracles)
-
-    target_list = detf_oracle.getTargetList()
+    ) """
 
     """
     Data Check
@@ -150,6 +304,20 @@ def main():
     account.transfer(detf.address, DEPOSIT_AMOUNT)
 
     print("ETH Balance", detf.getEthBalance())
+
+    """
+    Addresses
+    """
+    print("Router", router.address)
+    print("Rebalancer", rebalancer.address)
+    print("Price Oracle Factory", price_oracle_factory.address)
+    po_counter = 0
+    for i in range(0, len(price_oracles)):
+        po_counter = po_counter + 1
+        print("Price Oracle", po_counter, price_oracles[i])
+    print("DETF Oracle Factory", detf_oracle_factory.address)
+    print("DETF Oracle", detf_oracle)
+    print("DETF", detf.address)
 
     """
     REBALANCE #1
@@ -175,10 +343,8 @@ def main():
         "Buy List",
         rebalancer.createBuyList(detf.getOwnedAssets(), detf.getTargetAssets()),
     )
-    tx = detf.rebalance({"from": account})
-    tx.wait(1)
-    for i in range(0, len(tx.events)):
-        print(tx.events[i])
+
+    rebalance(account, detf, rebalancer, router)
 
     owned_assets = detf.getOwnedAssets()
     print("Owned Assets", owned_assets)
@@ -226,10 +392,8 @@ def main():
         "Buy List",
         rebalancer.createBuyList(detf.getOwnedAssets(), detf.getTargetAssets()),
     )
-    tx = detf.rebalance({"from": account})
-    tx.wait(1)
-    for i in range(0, len(tx.events)):
-        print(tx.events[i])
+
+    rebalance(account, detf, rebalancer, router)
 
     owned_assets = detf.getOwnedAssets()
     print("Owned Assets", owned_assets)
@@ -280,10 +444,8 @@ def main():
         "Buy List",
         rebalancer.createBuyList(detf.getOwnedAssets(), detf.getTargetAssets()),
     )
-    tx = detf.rebalance({"from": account})
-    tx.wait(1)
-    for i in range(0, len(tx.events)):
-        print(tx.events[i])
+
+    rebalance(account, detf, rebalancer, router)
 
     owned_assets = detf.getOwnedAssets()
     print("Owned Assets", owned_assets)
