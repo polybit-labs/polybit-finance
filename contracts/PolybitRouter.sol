@@ -11,7 +11,7 @@ contract PolybitRouter is Ownable {
 
     address internal immutable swapFactory;
     address internal immutable weth;
-    uint256 public slippage = 500;
+    uint256 internal slippage = 500;
 
     modifier ensure(uint256 deadline) {
         require(deadline >= block.timestamp, "PolybitRouter: EXPIRED");
@@ -83,6 +83,10 @@ contract PolybitRouter is Ownable {
         slippage = _slippage;
     }
 
+    function getSlippage() external view returns (uint256) {
+        return slippage;
+    }
+
     event LiquidPath(
         string msg1,
         uint256 ref1,
@@ -94,13 +98,12 @@ contract PolybitRouter is Ownable {
 
     event LiquidityTest(string msg, address);
 
-    function liquidPath(
+    function getLiquidPath(
         address tokenIn,
         address tokenOut,
         uint256 tokenAmountIn,
-        uint256 tokenAmountOut,
-        address recipient
-    ) external {
+        uint256 tokenAmountOut
+    ) external view returns (address[] memory) {
         address[] memory dualPath;
         address[] memory triPath;
         address[] memory bestPath;
@@ -175,54 +178,16 @@ contract PolybitRouter is Ownable {
             bestAmountOut = triPathAmountsOut;
         }
 
-        if (bestPath.length != 0) {
-            uint256 amountOutMinimum = ((10000 - slippage) * tokenAmountOut) /
-                10000; // e.g. 0.05% calculated as 50/10000
-            uint256 deadline = block.timestamp + 15;
-
-            emit LiquidPath(
-                "Token Amount Min",
-                amountOutMinimum,
-                "Path Amount",
-                bestAmountOut,
-                "Path",
-                bestPath
-            );
-            swapTokens(
-                tokenAmountIn,
-                amountOutMinimum,
-                bestPath,
-                recipient,
-                deadline
-            );
-        } else {
-            emit LiquidityTest(
-                "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY",
-                token
-            );
-        }
+        return bestPath;
     }
 
-    function swapTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
+    // requires the initial amount to have already been sent to the first pair
+    function _swap(
+        uint256[] memory amounts,
         address[] memory path,
-        address recipient,
-        uint256 deadline
-    ) internal virtual ensure(deadline) returns (uint256[] memory amounts) {
-        amounts = UniswapV2Library.getAmountsOut(swapFactory, amountIn, path);
-        require(
-            amounts[amounts.length - 1] >= amountOutMin,
-            "PolybitRouter: INSUFFICIENT_OUTPUT_AMOUNT"
-        );
-        TransferHelper.safeTransferFrom(
-            path[0],
-            msg.sender,
-            UniswapV2Library.pairFor(swapFactory, path[0], path[1]),
-            amounts[0]
-        );
-
-        for (uint256 i = 0; i < path.length - 1; i++) {
+        address _to
+    ) internal virtual {
+        for (uint256 i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0, ) = UniswapV2Library.sortTokens(input, output);
             uint256 amountOut = amounts[i + 1];
@@ -231,11 +196,31 @@ contract PolybitRouter is Ownable {
                 : (amountOut, uint256(0));
             address to = i < path.length - 2
                 ? UniswapV2Library.pairFor(swapFactory, output, path[i + 2])
-                : recipient;
+                : _to;
             IUniswapV2Pair(UniswapV2Library.pairFor(swapFactory, input, output))
                 .swap(amount0Out, amount1Out, to, new bytes(0));
         }
-        return amounts;
+    }
+
+    function swapTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] memory path,
+        address to,
+        uint256 deadline
+    ) external virtual ensure(deadline) returns (uint256[] memory amounts) {
+        amounts = UniswapV2Library.getAmountsOut(swapFactory, amountIn, path);
+        require(
+            amounts[amounts.length - 1] >= amountOutMin,
+            "UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT"
+        );
+        TransferHelper.safeTransferFrom(
+            path[0],
+            msg.sender,
+            UniswapV2Library.pairFor(swapFactory, path[0], path[1]),
+            amounts[0]
+        );
+        _swap(amounts, path, to);
     }
 
     function getAmountsOut(uint256 amountIn, address[] memory path)

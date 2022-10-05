@@ -44,7 +44,6 @@ interface IPolybitRebalancer {
     ) external view returns (uint256[] memory, uint256[] memory);
 
     function createAdjustToBuyOrder(
-        uint256 totalBalance,
         address[] memory adjustToBuyList,
         uint256 totalTargetPercentage,
         address detfAddress

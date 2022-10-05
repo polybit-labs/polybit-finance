@@ -382,12 +382,14 @@ contract PolybitRebalancer {
      * @dev percentages are calculated to 6 decimals places using 10**8
      */
     function createAdjustToBuyOrder(
-        uint256 totalBalance,
         address[] memory adjustToBuyList,
         uint256 totalTargetPercentage,
         address detfAddress
     ) external view returns (uint256[] memory, uint256[] memory) {
         DETFInfo memory info;
+
+        uint256 totalBalance = IPolybitDETF(detfAddress)
+            .getTotalBalanceInWeth();
 
         uint256[] memory adjustToBuyListAmountsIn = new uint256[](
             adjustToBuyList.length

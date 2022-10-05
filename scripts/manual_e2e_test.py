@@ -151,14 +151,30 @@ def main():
 
     print("ETH Balance", detf.getEthBalance())
 
-    tx = detf.wrapETH({"from": account})
-    tx.wait(1)
-    for i in range(0, len(tx.events)):
-        print(tx.events[i])
-
     """
     REBALANCE #1
     """
+    print("REBALANCE #1")
+    print(
+        "Sell List",
+        rebalancer.createSellList(detf.getOwnedAssets(), detf.getTargetAssets()),
+    )
+    adjustList = rebalancer.createAdjustList(
+        detf.getOwnedAssets(), detf.getTargetAssets()
+    )
+
+    print("Adjust List", adjustList)
+    print(
+        "Adjust To Sell List",
+        rebalancer.createAdjustToSellList(detf.address, adjustList),
+    )
+    print(
+        "Adjust To Buy List", rebalancer.createAdjustToBuyList(detf.address, adjustList)
+    )
+    print(
+        "Buy List",
+        rebalancer.createBuyList(detf.getOwnedAssets(), detf.getTargetAssets()),
+    )
     tx = detf.rebalance({"from": account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
@@ -189,6 +205,27 @@ def main():
     """
     detf_oracle.removeAsset(owned_assets[0], {"from": account})
 
+    print("REBALANCE #2")
+    print(
+        "Sell List",
+        rebalancer.createSellList(detf.getOwnedAssets(), detf.getTargetAssets()),
+    )
+    adjustList = rebalancer.createAdjustList(
+        detf.getOwnedAssets(), detf.getTargetAssets()
+    )
+
+    print("Adjust List", adjustList)
+    print(
+        "Adjust To Sell List",
+        rebalancer.createAdjustToSellList(detf.address, adjustList),
+    )
+    print(
+        "Adjust To Buy List", rebalancer.createAdjustToBuyList(detf.address, adjustList)
+    )
+    print(
+        "Buy List",
+        rebalancer.createBuyList(detf.getOwnedAssets(), detf.getTargetAssets()),
+    )
     tx = detf.rebalance({"from": account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
@@ -222,6 +259,27 @@ def main():
     for i in range(0, len(tx.events)):
         print(tx.events[i])
 
+    print("REBALANCE #3")
+    print(
+        "Sell List",
+        rebalancer.createSellList(detf.getOwnedAssets(), detf.getTargetAssets()),
+    )
+    adjustList = rebalancer.createAdjustList(
+        detf.getOwnedAssets(), detf.getTargetAssets()
+    )
+
+    print("Adjust List", adjustList)
+    print(
+        "Adjust To Sell List",
+        rebalancer.createAdjustToSellList(detf.address, adjustList),
+    )
+    print(
+        "Adjust To Buy List", rebalancer.createAdjustToBuyList(detf.address, adjustList)
+    )
+    print(
+        "Buy List",
+        rebalancer.createBuyList(detf.getOwnedAssets(), detf.getTargetAssets()),
+    )
     tx = detf.rebalance({"from": account})
     tx.wait(1)
     for i in range(0, len(tx.events)):

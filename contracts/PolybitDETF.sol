@@ -173,7 +173,7 @@ contract PolybitDETF {
     }
 
     function getRebalancerLists()
-        internal
+        public
         view
         returns (
             address[] memory,
@@ -206,9 +206,7 @@ contract PolybitDETF {
         return lastRebalance;
     }
 
-    event Deposited(string msg, uint256 ref);
-
-    function rebalance() external {
+    function checkForDeposits() public {
         require(detfStatus != 2, "DETF has been closed by the owner.");
         // Set DETF status to active on first use
         if (detfStatus == 0) {
@@ -227,35 +225,13 @@ contract PolybitDETF {
             );
         }
         lastRebalance = block.timestamp;
+    }
 
-        uint256 totalBalance = getTotalBalanceInWeth();
-        require(totalBalance > 0, "No tokens to swap.");
-
-        (
-            address[] memory sellList,
-            address[] memory adjustToSellList,
-            address[] memory adjustToBuyList,
-            address[] memory buyList
-        ) = getRebalancerLists();
-
-        if (sellList.length > 0) {
-            (
-                uint256[] memory sellListAmountsIn,
-                uint256[] memory sellListAmountsOut
-            ) = polybitRebalancer.createSellOrder(sellList, address(this));
-
-            for (uint256 i = 0; i < sellList.length; i++) {
-                if (sellList[i] != address(0)) {
-                    swapWithLiquidPath(
-                        sellList[i],
-                        wethAddress,
-                        sellListAmountsIn[i],
-                        sellListAmountsOut[i]
-                    );
-                }
-            }
-        }
-
+    function updateOwnedAssetsForRebalance(
+        address[] memory adjustToSellList,
+        address[] memory adjustToBuyList,
+        address[] memory buyList
+    ) public {
         // Reset ownedAssets to be an empty array
         delete ownedAssets;
 
@@ -279,6 +255,54 @@ contract PolybitDETF {
                 ownedAssets.push(buyList[i]);
             }
         }
+    }
+
+    event Deposited(string msg, uint256 ref);
+    event LiquidityTest(string msg);
+
+    function rebalance() external {
+        checkForDeposits();
+
+        uint256 totalBalance = getTotalBalanceInWeth();
+        require(totalBalance > 0, "No tokens to swap.");
+
+        (
+            address[] memory sellList,
+            address[] memory adjustToSellList,
+            address[] memory adjustToBuyList,
+            address[] memory buyList
+        ) = getRebalancerLists();
+
+        if (sellList.length > 0) {
+            (
+                uint256[] memory sellListAmountsIn,
+                uint256[] memory sellListAmountsOut
+            ) = polybitRebalancer.createSellOrder(sellList, address(this));
+
+            for (uint256 i = 0; i < sellList.length; i++) {
+                if (sellList[i] != address(0)) {
+                    address[] memory path = polybitRouter.getLiquidPath(
+                        sellList[i],
+                        wethAddress,
+                        sellListAmountsIn[i],
+                        sellListAmountsOut[i]
+                    );
+                    if (path.length > 0) {
+                        swap(sellListAmountsIn[i], sellListAmountsOut[i], path);
+                    } else {
+                        emit LiquidityTest(
+                            "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
+                        );
+                    }
+                }
+            }
+        }
+
+        updateOwnedAssetsForRebalance(
+            adjustToSellList,
+            adjustToBuyList,
+            buyList
+        );
 
         if (adjustToSellList.length > 0) {
             (
@@ -291,12 +315,23 @@ contract PolybitDETF {
 
             for (uint256 i = 0; i < adjustToSellList.length; i++) {
                 if (adjustToSellList[i] != address(0)) {
-                    swapWithLiquidPath(
+                    address[] memory path = polybitRouter.getLiquidPath(
                         adjustToSellList[i],
                         wethAddress,
                         adjustToSellListAmountsIn[i],
                         adjustToSellListAmountsOut[i]
                     );
+                    if (path.length > 0) {
+                        swap(
+                            adjustToSellListAmountsIn[i],
+                            adjustToSellListAmountsOut[i],
+                            path
+                        );
+                    } else {
+                        emit LiquidityTest(
+                            "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
+                        );
+                    }
                 }
             }
         }
@@ -309,14 +344,11 @@ contract PolybitDETF {
                 address(this)
             );
 
-        totalBalance = getTotalBalanceInWeth();
-
         if (adjustToBuyList.length > 0) {
             (
                 uint256[] memory adjustToBuyListAmountsIn,
                 uint256[] memory adjustToBuyListAmountsOut
             ) = polybitRebalancer.createAdjustToBuyOrder(
-                    totalBalance,
                     adjustToBuyList,
                     totalTargetPercentage,
                     address(this)
@@ -324,12 +356,23 @@ contract PolybitDETF {
 
             for (uint256 i = 0; i < adjustToBuyList.length; i++) {
                 if (adjustToBuyList[i] != address(0)) {
-                    swapWithLiquidPath(
+                    address[] memory path = polybitRouter.getLiquidPath(
                         wethAddress,
                         adjustToBuyList[i],
                         adjustToBuyListAmountsIn[i],
                         adjustToBuyListAmountsOut[i]
                     );
+                    if (path.length > 0) {
+                        swap(
+                            adjustToBuyListAmountsIn[i],
+                            adjustToBuyListAmountsOut[i],
+                            path
+                        );
+                    } else {
+                        emit LiquidityTest(
+                            "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
+                        );
+                    }
                 }
             }
         }
@@ -347,35 +390,44 @@ contract PolybitDETF {
 
             for (uint256 i = 0; i < buyList.length; i++) {
                 if (buyList[i] != address(0)) {
-                    swapWithLiquidPath(
+                    address[] memory path = polybitRouter.getLiquidPath(
                         wethAddress,
                         buyList[i],
                         buyListAmountsIn[i],
                         buyListAmountsOut[i]
                     );
+                    if (path.length > 0) {
+                        swap(buyListAmountsIn[i], buyListAmountsOut[i], path);
+                    } else {
+                        emit LiquidityTest(
+                            "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
+                        );
+                    }
                 }
             }
         }
     }
 
-    function swapWithLiquidPath(
-        address tokenIn,
-        address tokenOut,
-        uint256 tokenAmountIn,
-        uint256 tokenAmountOut
-    ) internal {
+    function swap(
+        uint256 amountIn,
+        uint256 amountOut,
+        address[] memory path
+    ) public {
+        uint256 amountOutMin = ((10000 - polybitRouter.getSlippage()) *
+            amountOut) / 10000; // e.g. 0.05% calculated as 50/10000
+        uint256 deadline = block.timestamp + 15;
         address recipient = address(this);
-        IERC20 token = IERC20(tokenIn);
+        IERC20 token = IERC20(path[0]);
         require(
-            token.approve(address(polybitRouterAddress), tokenAmountIn),
+            token.approve(address(polybitRouterAddress), amountIn),
             "TOKEN approve failed"
         );
-        polybitRouter.liquidPath(
-            tokenIn,
-            tokenOut,
-            tokenAmountIn,
-            tokenAmountOut,
-            recipient
+        polybitRouter.swapTokens(
+            amountIn,
+            amountOutMin,
+            path,
+            recipient,
+            deadline
         );
         require(
             token.approve(address(polybitRouterAddress), 0),
@@ -385,14 +437,14 @@ contract PolybitDETF {
 
     event EthWrap(string msg, uint256 amount);
 
-    function wrapETH() public {
+    function wrapETH() internal {
         uint256 ethBalance = getEthBalance();
         require(ethBalance > 0, "No ETH available to wrap");
         emit EthWrap("Wrapped ETH", ethBalance);
         wethToken.deposit{value: ethBalance}();
     }
 
-    function unwrapETH() public {
+    function unwrapETH() internal {
         uint256 wethBalance = getWethBalance();
         require(wethBalance > 0, "No WETH available to unwrap");
         emit EthWrap("UnWrapped ETH", wethBalance);
@@ -507,7 +559,7 @@ contract PolybitDETF {
 
     event SellToClose(string msg, uint256 ref);
 
-    function sellToClose() external {
+    /*     function sellToClose() external {
         require(
             block.timestamp >= unlockTime,
             "The wallet is locked. Check the time left."
@@ -558,5 +610,5 @@ contract PolybitDETF {
                 ethBalance
             );
         }
-    }
+    } */
 }
