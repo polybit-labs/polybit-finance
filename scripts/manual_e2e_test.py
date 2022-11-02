@@ -13,6 +13,7 @@ from scripts.utils.polybit_utils import get_account
 from brownie import config, network, Contract, PolybitPriceOracle
 from pycoingecko import CoinGeckoAPI
 from web3 import Web3
+import time
 
 cg = CoinGeckoAPI()
 
@@ -240,10 +241,22 @@ def main():
 
     detf_oracle_factory = deploy_DETF_oracle_factory.main(account)
     detf_oracle = deploy_DETF_oracle_from_factory.main(
-        account, detf_oracle_factory.address, "Test DETF Name", 100, router.address
+        account, detf_oracle_factory.address, "Binance Governance", 100, router.address
     )
     detf_oracle.setOracleStatus(1, {"from": account})
     add_assets_to_detf_oracle(account, detf_oracle, price_oracles)
+
+    detf_oracle1 = deploy_DETF_oracle_from_factory.main(
+        account, detf_oracle_factory.address, "Binance Metaverse", 101, router.address
+    )
+    detf_oracle1.setOracleStatus(1, {"from": account})
+    add_assets_to_detf_oracle(account, detf_oracle1, price_oracles)
+
+    detf_oracle2 = deploy_DETF_oracle_from_factory.main(
+        account, detf_oracle_factory.address, "Binance Top 10", 102, router.address
+    )
+    detf_oracle2.setOracleStatus(1, {"from": account})
+    add_assets_to_detf_oracle(account, detf_oracle2, price_oracles)
 
     detf_factory = deploy_DETF_factory.main(
         account, config["networks"][network.show_active()]["weth_address"]
@@ -251,18 +264,26 @@ def main():
 
     detf_factory.setPolybitRebalancerAddress(rebalancer.address, {"from": account})
     detf_factory.setPolybitRouterAddress(router.address, {"from": account})
+    detf_factory.setDepositFee(50, {"from": account})
+    detf_factory.setFeeAddress(account.address, {"from": account})
 
-    lockDuration = 10
     riskWeighting = 0
+
     detf = deploy_DETF_from_factory.main(
         account,
         detf_factory.address,
         account.address,
         detf_oracle.address,
         riskWeighting,
-        lockDuration,
     )
 
+    lockDuration = 30 * 86400
+    DEPOSIT_AMOUNT = Web3.toWei(1, "ether")
+    detf.deposit(time.time() + lockDuration, {"from": account, "value": DEPOSIT_AMOUNT})
+
+    print("Balance", detf.getTotalBalanceInWeth())
+
+    """
     detf2 = deploy_DETF_from_factory.main(
         account,
         detf_factory.address,
@@ -272,17 +293,7 @@ def main():
         lockDuration,
     )
 
-    print("DETFs owned by Account", detf_factory.getDETFAccounts(account.address))
-
-    """ detf = deploy_DETF.main(
-        account,
-        detf_oracle.address,
-        detf_oracle_factory.address,
-        0,
-        rebalancer.address,
-        router.address,
-        lockDuration,
-    ) """
+    print("DETFs owned by Account", detf_factory.getDETFAccounts(account.address)) """
 
     """
     Data Check
@@ -299,25 +310,28 @@ def main():
     print("Owned Assets", detf.getOwnedAssets())
     print("Target Assets", detf.getTargetAssets())
 
-    DEPOSIT_AMOUNT = Web3.toWei(1, "ether")
+    """ DEPOSIT_AMOUNT = Web3.toWei(1, "ether")
     # Transfer ETH into wallet
-    account.transfer(detf.address, DEPOSIT_AMOUNT)
+    account.transfer(detf.address, DEPOSIT_AMOUNT) """
 
     print("ETH Balance", detf.getEthBalance())
 
     """
     Addresses
     """
-    print("Router", router.address)
-    print("Rebalancer", rebalancer.address)
-    print("Price Oracle Factory", price_oracle_factory.address)
+    print("router", router.address)
+    print("rebalancer", rebalancer.address)
+    print("price_oracle_factory", price_oracle_factory.address)
     po_counter = 0
     for i in range(0, len(price_oracles)):
         po_counter = po_counter + 1
-        print("Price Oracle", po_counter, price_oracles[i])
-    print("DETF Oracle Factory", detf_oracle_factory.address)
-    print("DETF Oracle", detf_oracle)
-    print("DETF", detf.address)
+        print("price_oracle", po_counter, price_oracles[i])
+    print("detf_oracle_factory", detf_oracle_factory.address)
+    print("detf_oracle", detf_oracle)
+    print("detf1_oracle", detf_oracle1)
+    print("detf2_oracle", detf_oracle2)
+    print("detf_factory", detf_factory.address)
+    # print("DETF", detf.address)
 
     """
     REBALANCE #1

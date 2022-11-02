@@ -3,6 +3,11 @@ compiler:
     version: 0.8.7
 networks:
     development:
+        weth_address: "0x1e33833a035069f42d68D1F53b341643De1C018D"
+        busd_address: "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee"
+        usdt_address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
+        usdc_address: "0x64544969ed7EBf5f083679233325356EbE738930"
+        pancakeswap_factory_address: "0x6725F303b657a9451d8BA641348b6761A6CC7a17"
         verify: False
     ganache-local:
         verify: False

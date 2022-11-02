@@ -3,18 +3,12 @@ from scripts.utils.polybit_utils import get_account
 
 
 def create_detf(
-    account,
-    detf_factory,
-    walletOwner,
-    polybitDETFOracleAddress,
-    riskWeighting,
-    lockDuration,
+    account, detf_factory, walletOwner, polybitDETFOracleAddress, riskWeighting
 ):
     tx = detf_factory.createDETF(
         walletOwner,
         polybitDETFOracleAddress,
         riskWeighting,
-        lockDuration,
         {"from": account},
     )
     tx.wait(1)
@@ -23,22 +17,12 @@ def create_detf(
 
 
 def main(
-    account,
-    detf_factory_address,
-    walletOwner,
-    polybitDETFOracleAddress,
-    riskWeighting,
-    lockDuration,
+    account, detf_factory_address, walletOwner, polybitDETFOracleAddress, riskWeighting
 ):
     detf_factory_abi = PolybitDETFFactory.abi
     detf_factory = Contract.from_abi("detf", detf_factory_address, detf_factory_abi)
     create_detf(
-        account,
-        detf_factory,
-        walletOwner,
-        polybitDETFOracleAddress,
-        riskWeighting,
-        lockDuration,
+        account, detf_factory, walletOwner, polybitDETFOracleAddress, riskWeighting
     )
     detf_address = detf_factory.getListOfDETFs()[-1]
     detf = Contract.from_abi("detf", detf_address, PolybitDETF.abi)

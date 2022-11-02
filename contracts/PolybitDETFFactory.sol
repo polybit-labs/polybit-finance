@@ -39,21 +39,20 @@ contract PolybitDETFFactory is Ownable {
     function createDETF(
         address _walletOwner,
         address _polybitDETFOracleAddress,
-        uint256 _riskWeighting,
-        uint256 _lockDuration
-    ) external onlyOwner {
+        uint256 _riskWeighting
+    ) external returns (address) {
         PolybitDETF DETF = new PolybitDETF(
             owner(),
             _walletOwner,
             _polybitDETFOracleAddress,
             address(this),
-            _riskWeighting,
-            _lockDuration
+            _riskWeighting
         );
         detfArray.push(DETF);
         detfAddressList.push(address(DETF));
         setDETFAccounts(_walletOwner, address(DETF));
-        emit DETFCreated("New DETF oracle created", address(DETF));
+        emit DETFCreated("New DETF created", address(DETF));
+        return address(DETF);
     }
 
     function setPolybitRebalancerAddress(address rebalancerAddress)

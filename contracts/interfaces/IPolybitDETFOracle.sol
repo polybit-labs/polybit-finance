@@ -4,6 +4,10 @@ pragma solidity >=0.8.7;
 interface IPolybitDETFOracle {
     function getFactoryAddress() external view returns (address);
 
+    function getDetfName() external view returns (string memory);
+
+    function getDetfId() external view returns (uint256);
+
     function getTargetList() external view returns (address[] memory);
 
     function getPriceOracleAddress(address tokenAddress)

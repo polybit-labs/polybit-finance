@@ -17,19 +17,16 @@ contract PolybitDETF is Ownable {
     IPolybitDETFOracle polybitDETFOracle;
     address public polybitDETFFactoryAddress;
     IPolybitDETFFactory polybitDETFFactory;
-    /* address public polybitRebalancerAddress;
-    IPolybitRebalancer polybitRebalancer;
-    address public polybitRouterAddress;
-    IPolybitRouter polybitRouter; */
     address internal wethAddress;
     IWETH wethToken;
     uint256 internal riskWeighting;
     address[] internal ownedAssets;
-    uint256 public totalDeposited = 0;
+    uint256 internal totalDeposited = 0;
     uint256 internal lastRebalance = 0;
+    uint256 internal createdAt = 0;
     uint256 internal constant rebalancePeriods = 1 * 60; //90 * 86400;
-    uint256 internal unlockTime;
-    uint256 public valueAtClose;
+    uint256 internal timeLock = 0;
+    uint256 internal valueAtClose = 0;
     uint256 internal detfStatus = 0; //Set status to inactive (0 = inactive, 1 = active, 2 = closed)
 
     using SafeERC20 for IERC20;
@@ -40,35 +37,22 @@ contract PolybitDETF is Ownable {
         address _walletOwner,
         address _polybitDETFOracleAddress,
         address _polybitDETFFactoryAddress,
-        uint256 _riskWeighting,
-        /* address _polybitRebalancerAddress,
-        address _polybitRouterAddress, */
-        uint256 _lockDuration
+        uint256 _riskWeighting
     ) {
         require(address(_owner) != address(0));
         require(address(_walletOwner) != address(0));
         require(address(_polybitDETFOracleAddress) != address(0));
         require(address(_polybitDETFFactoryAddress) != address(0));
-        /* require(address(_polybitRebalancerAddress) != address(0));
-        require(address(_polybitRouterAddress) != address(0)); */
         _transferOwnership(_owner);
         walletOwner = _walletOwner;
         polybitDETFOracleAddress = _polybitDETFOracleAddress;
         polybitDETFOracle = IPolybitDETFOracle(polybitDETFOracleAddress);
         polybitDETFFactoryAddress = _polybitDETFFactoryAddress;
         polybitDETFFactory = IPolybitDETFFactory(polybitDETFFactoryAddress);
-        /* polybitRebalancerAddress = _polybitRebalancerAddress;
-        polybitRebalancer = IPolybitRebalancer(polybitRebalancerAddress);
-        polybitRouterAddress = _polybitRouterAddress;
-        polybitRouter = IPolybitRouter(polybitRouterAddress); */
         riskWeighting = _riskWeighting;
         wethAddress = polybitDETFFactory.getWethAddress();
         wethToken = IWETH(wethAddress);
-        unlockTime = block.timestamp + _lockDuration;
-        require(
-            block.timestamp < unlockTime,
-            "Unlock time should be in the future"
-        );
+        createdAt = block.timestamp;
     }
 
     receive() external payable {}
@@ -96,12 +80,64 @@ contract PolybitDETF is Ownable {
         return riskWeighting;
     }
 
-    function getLockTimeLeft() external view returns (uint256) {
-        if (unlockTime > block.timestamp) {
-            return unlockTime - block.timestamp;
+    function getTimeLock() external view returns (uint256) {
+        return timeLock;
+    }
+
+    function getTimeLockRemaining() external view returns (uint256) {
+        if (timeLock > block.timestamp) {
+            return timeLock - block.timestamp;
         } else {
             return uint256(0);
         }
+    }
+
+    function setTimeLock(uint256 unixTimeLock) public {
+        require(
+            unixTimeLock > block.timestamp,
+            "Unlock time should be in the future"
+        );
+        timeLock = unixTimeLock;
+    }
+
+    function getCreatedAt() external view returns (uint256) {
+        return createdAt;
+    }
+
+    function deposit(uint256 unixTimeLock) public payable {
+        if (unixTimeLock > 0) {
+            setTimeLock(unixTimeLock);
+        }
+        checkForDeposits();
+    }
+
+    function checkForDeposits() public {
+        require(detfStatus != 2, "DETF has been closed by the owner.");
+        // Set DETF status to active on first use
+        if (detfStatus == 0) {
+            detfStatus = 1;
+        }
+        //require current time is >= lastRebalance + rebalancePeriods
+        uint256 ethBalance = getEthBalance();
+        if (ethBalance > 0) {
+            totalDeposited = ethBalance + totalDeposited;
+            emit Deposited("Deposited ETH into DETF", ethBalance);
+            wrapETH();
+            processFee(
+                getWethBalance(),
+                polybitDETFFactory.getDepositFee(),
+                polybitDETFFactory.getFeeAddress()
+            );
+        }
+        lastRebalance = block.timestamp;
+    }
+
+    function getTotalDeposited() external view returns (uint256) {
+        return totalDeposited;
+    }
+
+    function getValueAtClose() external view returns (uint256) {
+        return valueAtClose;
     }
 
     function processFee(
@@ -204,27 +240,6 @@ contract PolybitDETF is Ownable {
 
     function getLastRebalance() external view returns (uint256) {
         return lastRebalance;
-    }
-
-    function checkForDeposits() public {
-        require(detfStatus != 2, "DETF has been closed by the owner.");
-        // Set DETF status to active on first use
-        if (detfStatus == 0) {
-            detfStatus = 1;
-        }
-        //require current time is >= lastRebalance + rebalancePeriods
-        uint256 ethBalance = getEthBalance();
-        if (ethBalance > 0) {
-            totalDeposited = ethBalance + totalDeposited;
-            emit Deposited("Deposited ETH into DETF", ethBalance);
-            wrapETH();
-            processFee(
-                getWethBalance(),
-                polybitDETFFactory.getDepositFee(),
-                polybitDETFFactory.getFeeAddress()
-            );
-        }
-        lastRebalance = block.timestamp;
     }
 
     function updateOwnedAssetsForRebalance(
@@ -466,7 +481,7 @@ contract PolybitDETF is Ownable {
 
     function transferToClose() external {
         require(
-            block.timestamp >= unlockTime,
+            block.timestamp >= timeLock,
             "The wallet is locked. Check the time left."
         );
         detfStatus = 2;
