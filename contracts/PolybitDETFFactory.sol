@@ -2,7 +2,6 @@
 pragma solidity >=0.8.7;
 
 import "./PolybitDETF.sol";
-import "./interfaces/IPolybitDETFOracle.sol";
 import "./Ownable.sol";
 
 /**
@@ -22,12 +21,12 @@ contract PolybitDETFFactory is Ownable {
     address internal immutable wethAddress;
     mapping(address => address[]) internal detfAccounts;
 
-    constructor(address _oracleOwner, address _wethAddress) {
+    constructor(address _factoryOwner, address _wethAddress) {
         require(
-            address(_oracleOwner) != address(0),
+            address(_factoryOwner) != address(0),
             "PolybitDETFFactory: OWNER_ADDRESS_INVALID"
         );
-        _transferOwnership(_oracleOwner);
+        _transferOwnership(_factoryOwner);
         wethAddress = _wethAddress;
     }
 
@@ -36,17 +35,11 @@ contract PolybitDETFFactory is Ownable {
     /**
      * @notice Creates a new DETF and stores the address in the Factory's list.
      */
-    function createDETF(
-        address _walletOwner,
-        address _polybitDETFOracleAddress,
-        uint256 _riskWeighting
-    ) external returns (address) {
+    function createDETF(address _walletOwner) external returns (address) {
         PolybitDETF DETF = new PolybitDETF(
             owner(),
             _walletOwner,
-            _polybitDETFOracleAddress,
-            address(this),
-            _riskWeighting
+            address(this)
         );
         detfArray.push(DETF);
         detfAddressList.push(address(DETF));
@@ -134,7 +127,7 @@ contract PolybitDETFFactory is Ownable {
     function setFeeAddress(address _feeAddress) external onlyOwner {
         require(
             _feeAddress != address(0),
-            ("PolybitDETFOracleFactory: FEE_ADDRESS_INVALID")
+            ("PolybitDETFFactory: FEE_ADDRESS_INVALID")
         );
         feeAddress = _feeAddress;
     }

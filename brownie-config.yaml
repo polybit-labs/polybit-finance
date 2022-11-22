@@ -42,3 +42,6 @@ wallets:
 dotenv: .env
 polybit-finance:
     version: 0.0.6
+data_providers:
+    coingecko: ${COINGECKO_API_KEY}
+    moralis: ${MORALIS_API_KEY}
