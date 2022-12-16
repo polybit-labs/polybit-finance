@@ -533,15 +533,22 @@ def main():
     detf_factory.setDepositFee(0, {"from": account})
     detf_factory.setFeeAddress(account.address, {"from": account})
 
-    detf = deploy_DETF_from_factory.main(
+    product_id = 5610001000
+    product_category = "BSC Index Top 10"
+    product_dimension = "Market Cap"
+
+    """ detf = deploy_DETF_from_factory.main(
         account,
         detf_factory.address,
         account.address,
+        product_id,
+        product_category,
+        product_dimension,
     )
 
-    lockDuration = 30 * 86400
-    deposit_amount = Web3.toWei(10, "ether")
-    detf.deposit(time.time() + lockDuration, {"from": account, "value": deposit_amount})
+    print("Product ID", detf.getProductId())
+    print("Product Category", detf.getProductCategory())
+    print("Product Dimension", detf.getProductDimension()) """
 
     """
     Data Check
@@ -556,10 +563,31 @@ def main():
     print("rebalancer", rebalancer.address)
     print("detf_factory", detf_factory.address)
 
+    print("DETF ABI")
+    print(detf.abi)
+
+    print("DETF Factory ABI")
+    print(detf_factory.abi)
+
+    print("Rebalancer ABI")
+    print(rebalancer.abi)
+
+    print("Router ABI")
+    print(router.abi)
+
+    lockDuration = 30 * 86400
+    deposit_amount = Web3.toWei(0.001, "ether")
+    """ tx = detf.deposit(
+        time.time() + lockDuration, {"from": account, "value": deposit_amount}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i]) """
+
     """
     REBALANCE #1
     """
-    print("REBALANCE #1")
+    """print("REBALANCE #1")
     run_rebalance(
         account,
         detf,
@@ -569,12 +597,12 @@ def main():
         TEST_ONE_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited())
+    print("Total Deposits", detf.getTotalDeposited())"""
 
     """
     REBALANCE #2
     """
-    print("REBALANCE #2")
+    """ print("REBALANCE #2")
     run_rebalance(
         account,
         detf,
@@ -584,12 +612,12 @@ def main():
         TEST_TWO_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited())
+    print("Total Deposits", detf.getTotalDeposited()) """
 
     """
     REBALANCE #3
     """
-    print("REBALANCE #3")
+    """ print("REBALANCE #3")
     run_rebalance(
         account,
         detf,
@@ -599,12 +627,12 @@ def main():
         TEST_THREE_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited())
+    print("Total Deposits", detf.getTotalDeposited()) """
 
     """
     REBALANCE #4
     """
-    print("REBALANCE #4")
+    """ print("REBALANCE #4")
 
     detf.deposit(
         time.time() + lockDuration, {"from": account, "value": Web3.toWei(5, "ether")}
@@ -618,4 +646,4 @@ def main():
         TEST_FOUR_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited())
+    print("Total Deposits", detf.getTotalDeposited()) """

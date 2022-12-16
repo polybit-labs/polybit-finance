@@ -35,11 +35,19 @@ contract PolybitDETFFactory is Ownable {
     /**
      * @notice Creates a new DETF and stores the address in the Factory's list.
      */
-    function createDETF(address _walletOwner) external returns (address) {
+    function createDETF(
+        address _walletOwner,
+        uint256 _productId,
+        string memory _productCategory,
+        string memory _productDimension
+    ) external returns (address) {
         PolybitDETF DETF = new PolybitDETF(
             owner(),
             _walletOwner,
-            address(this)
+            address(this),
+            _productId,
+            _productCategory,
+            _productDimension
         );
         detfArray.push(DETF);
         detfAddressList.push(address(DETF));

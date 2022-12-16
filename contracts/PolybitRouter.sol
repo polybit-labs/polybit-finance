@@ -103,7 +103,7 @@ contract PolybitRouter is Ownable {
         address tokenOut,
         uint256 tokenAmountIn,
         uint256 tokenAmountOut
-    ) external view returns (address[] memory) {
+    ) public view returns (address[] memory) {
         address[] memory dualPath;
         address[] memory triPath;
         address[] memory bestPath;
@@ -179,6 +179,29 @@ contract PolybitRouter is Ownable {
         }
 
         return bestPath;
+    }
+
+    function getLiquidPaths(
+        address[] memory tokensIn,
+        address[] memory tokensOut,
+        uint256[] memory tokenAmountsIn,
+        uint256[] memory tokenAmountsOut
+    ) external view returns (address[][] memory) {
+        address[][] memory paths = new address[][](tokensIn.length);
+
+        uint256 index = 0;
+        for (uint256 i = 0; i < tokensIn.length; i++) {
+            address[] memory path = getLiquidPath(
+                tokensIn[i],
+                tokensOut[i],
+                tokenAmountsIn[i],
+                tokenAmountsOut[i]
+            );
+            paths[index] = path;
+            index++;
+        }
+
+        return paths;
     }
 
     // requires the initial amount to have already been sent to the first pair

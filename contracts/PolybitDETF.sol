@@ -13,16 +13,19 @@ contract PolybitDETF is Ownable {
     address public walletOwner;
     address public polybitDETFFactoryAddress;
     IPolybitDETFFactory polybitDETFFactory;
+    uint256 internal productId;
+    string internal productCategory;
+    string internal productDimension;
     address internal wethAddress;
     IWETH wethToken;
     address[] internal ownedAssets;
     uint256[][] public deposits;
     uint256 internal lastRebalance = 0;
     uint256 internal creationTimestamp = 0;
-    uint256 internal constant REBALANCE_PERIODS = 1 * 60; //90 * 86400;
+    uint256 internal closeTimestamp = 0;
     uint256 internal timeLock = 0;
-    uint256 internal valueAtClose = 0;
-    uint256 internal detfStatus = 0; //Set status to inactive (0 = inactive, 1 = active, 2 = closed)
+    uint256 internal finalBalanceInWeth = 0;
+    uint256 internal detfStatus = 1; //Set status to active (0 = inactive, 1 = active)
 
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
@@ -30,15 +33,22 @@ contract PolybitDETF is Ownable {
     constructor(
         address _owner,
         address _walletOwner,
-        address _polybitDETFFactoryAddress
+        address _polybitDETFFactoryAddress,
+        uint256 _productId,
+        string memory _productCategory,
+        string memory _productDimension
     ) {
         require(address(_owner) != address(0));
         require(address(_walletOwner) != address(0));
         require(address(_polybitDETFFactoryAddress) != address(0));
+        require(_productId > 0);
         _transferOwnership(_owner);
         walletOwner = _walletOwner;
         polybitDETFFactoryAddress = _polybitDETFFactoryAddress;
         polybitDETFFactory = IPolybitDETFFactory(polybitDETFFactoryAddress);
+        productId = _productId;
+        productCategory = _productCategory;
+        productDimension = _productDimension;
         wethAddress = polybitDETFFactory.getWethAddress();
         wethToken = IWETH(wethAddress);
         creationTimestamp = block.timestamp;
@@ -47,6 +57,22 @@ contract PolybitDETF is Ownable {
     receive() external payable {}
 
     fallback() external payable {}
+
+    function getProductId() external view returns (uint256) {
+        return productId;
+    }
+
+    function getProductCategory() external view returns (string memory) {
+        return productCategory;
+    }
+
+    function getProductDimension() external view returns (string memory) {
+        return productDimension;
+    }
+
+    function getDETFStatus() external view returns (uint256) {
+        return detfStatus;
+    }
 
     function setTimeLock(uint256 unixTimeLock) public {
         require(
@@ -68,34 +94,34 @@ contract PolybitDETF is Ownable {
         }
     }
 
-    function getcreationTimestamp() external view returns (uint256) {
+    function getCreationTimestamp() external view returns (uint256) {
         return creationTimestamp;
     }
 
-    function deposit(uint256 lockTimestamp) public payable {
+    function getCloseTimestamp() external view returns (uint256) {
+        return closeTimestamp;
+    }
+
+    event EthBalance(string, uint256);
+
+    function deposit(uint256 lockTimestamp, SwapOrders[] memory orderData)
+        public
+        payable
+    {
         if (lockTimestamp > 0) {
             setTimeLock(lockTimestamp);
         }
-        checkForDeposits();
+        //checkForDeposits();
+        rebalance(orderData);
     }
 
-    function checkForDeposits() public {
-        require(detfStatus != 2, "DETF has been closed by the owner.");
-        // Set DETF status to active on first use
-        if (detfStatus == 0) {
-            detfStatus = 1;
-        }
-        //require current time is >= lastRebalance + rebalancePeriods
+    function checkForDeposits() internal {
         uint256 ethBalance = getEthBalance();
         if (ethBalance > 0) {
             deposits.push([block.timestamp, ethBalance]);
             emit Deposited("Deposited ETH into DETF", ethBalance);
             wrapETH();
-            processFee(
-                getWethBalance(),
-                polybitDETFFactory.getDepositFee(),
-                polybitDETFFactory.getFeeAddress()
-            );
+            //processFee(getWethBalance(),polybitDETFFactory.getDepositFee(),polybitDETFFactory.getFeeAddress());
         }
     }
 
@@ -103,7 +129,7 @@ contract PolybitDETF is Ownable {
         return deposits;
     }
 
-    function getTotalDeposited() external view returns (uint256) {
+    function getTotalDeposited() public view returns (uint256) {
         uint256 totalDeposited = 0;
         for (uint256 i = 0; i < deposits.length; i++) {
             totalDeposited = totalDeposited + deposits[i][1];
@@ -111,8 +137,8 @@ contract PolybitDETF is Ownable {
         return totalDeposited;
     }
 
-    function getValueAtClose() external view returns (uint256) {
-        return valueAtClose;
+    function getFinalBalance() external view returns (uint256) {
+        return finalBalanceInWeth;
     }
 
     function processFee(
@@ -248,7 +274,7 @@ contract PolybitDETF is Ownable {
         uint256 totalBalance;
     }
 
-    function rebalance(SwapOrders[] memory orderData) external {
+    function rebalance(SwapOrders[] memory orderData) public {
         lastRebalance = block.timestamp;
         OrdersInfo memory ordersInfo;
 
@@ -270,7 +296,7 @@ contract PolybitDETF is Ownable {
                     );
                 } else {
                     emit LiquidityTest(
-                        "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
+                        "PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN"
                     );
                 }
             }
@@ -289,9 +315,7 @@ contract PolybitDETF is Ownable {
                     orderData[0].adjustToSellOrders[0].path[i]
                 );
             } else {
-                emit LiquidityTest(
-                    "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
-                );
+                emit LiquidityTest("PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN");
             }
         }
 
@@ -337,7 +361,7 @@ contract PolybitDETF is Ownable {
                         );
                     } else {
                         emit LiquidityTest(
-                            "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
+                            "PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN"
                         );
                     }
                 }
@@ -367,7 +391,7 @@ contract PolybitDETF is Ownable {
                         );
                     } else {
                         emit LiquidityTest(
-                            "PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY"
+                            "PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN"
                         );
                     }
                 }
@@ -451,7 +475,7 @@ contract PolybitDETF is Ownable {
             block.timestamp >= timeLock,
             "The wallet is locked. Check the time left."
         );
-        detfStatus = 2;
+        detfStatus = 0;
 
         address[] memory ownedAssetList = ownedAssets; // Create temporary list to avoid re-entrancy
         delete ownedAssets;
@@ -543,41 +567,47 @@ contract PolybitDETF is Ownable {
 
     event SellToClose(string msg, uint256 ref);
 
-    /*     function sellToClose() external {
+    struct SellToCloseSwapOrders {
+        address[] sellList;
+        uint256[] sellListPrices;
+        SwapOrder[] sellOrders;
+    }
+
+    function sellToClose(SellToCloseSwapOrders[] memory orderData) public {
         require(
-            block.timestamp >= unlockTime,
+            block.timestamp >= timeLock,
             "The wallet is locked. Check the time left."
         );
-        detfStatus = 2;
+        detfStatus = 0; // Set status to inactive
+        delete ownedAssets; // Clear owned assets list
+        closeTimestamp = block.timestamp;
 
-        address[] memory ownedAssetList = ownedAssets; // Create temporary list to avoid re-entrancy
-        delete ownedAssets;
-
-        if (ownedAssetList.length > 0) {
-            for (uint256 i = 0; i < ownedAssetList.length; i++) {
-                address tokenAddress = ownedAssetList[i];
-                (
-                    uint256 tokenBalance,
-                    uint256 tokenBalanceInWeth
-                ) = getTokenBalance(tokenAddress);
-                swapWithLiquidPath(
-                    tokenAddress,
-                    wethAddress,
-                    tokenBalance,
-                    tokenBalanceInWeth
-                );
+        for (uint256 i = 0; i < orderData[0].sellList.length; i++) {
+            if (orderData[0].sellList[i] != address(0)) {
+                if (orderData[0].sellOrders[0].path[i].length > 0) {
+                    swap(
+                        orderData[0].sellOrders[0].amountsIn[i],
+                        orderData[0].sellOrders[0].amountsOut[i],
+                        orderData[0].sellOrders[0].path[i]
+                    );
+                } else {
+                    emit LiquidityTest(
+                        "PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN"
+                    );
+                }
             }
         }
 
+        uint256 totalDeposited = getTotalDeposited();
         uint256 wethBalance = getWethBalance();
-        valueAtClose = wethBalance;
+        finalBalanceInWeth = wethBalance;
 
         if (wethBalance > totalDeposited) {
             uint256 profit = wethBalance - totalDeposited;
             processFee(
                 profit,
-                polybitDETFOracleFactory.getPerformanceFee(),
-                polybitDETFOracleFactory.getFeeAddress()
+                polybitDETFFactory.getPerformanceFee(),
+                polybitDETFFactory.getFeeAddress()
             );
         }
 
@@ -587,12 +617,12 @@ contract PolybitDETF is Ownable {
 
         uint256 ethBalance = getEthBalance();
         if (ethBalance > 0) {
-            (bool sent, ) = owner.call{value: ethBalance}("");
+            (bool sent, ) = walletOwner.call{value: ethBalance}("");
             require(sent, "Failed to send ETH");
             emit SellToClose(
                 "ETH amount returned to wallet owner:",
                 ethBalance
             );
         }
-    } */
+    }
 }
