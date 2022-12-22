@@ -1,4 +1,6 @@
 from scripts import (
+    deploy_access,
+    deploy_config,
     deploy_rebalancer,
     deploy_router,
     deploy_DETF_factory,
@@ -120,7 +122,6 @@ def add_base_tokens_to_router(router, account):
     )
 
 def first_deposit_order_data(
-    account,
     detf,
     rebalancer,
     router,
@@ -136,7 +137,7 @@ def first_deposit_order_data(
     print("Buy List Weights", buyListWeights)
     print("Buy List Prices", buyListPrices)
 
-    wethBalance = detf.getWethBalance({"from": account}) + int(weth_input_amount)
+    wethBalance = detf.getWethBalance() + int(weth_input_amount)
 
     # Begin buy orders
     totalTargetPercentage = 0
@@ -599,84 +600,149 @@ def run_rebalance(account, detf, rebalancer, router, assets, weights):
                     round(token_balance_in_weth / total_balance, 4),
                 )
 
-
 def main():
-    account = get_account(type="owner")
-    print("Account Owner Address", account.address)
-    rebalancer = deploy_rebalancer.main(account)
-    router = deploy_router.main(
-        account,
+    polybit_owner_account = get_account(type="polybit_owner")
+    rebalancer_account = get_account(type="rebalancer_owner")
+    router_account = get_account(type="router_owner")
+    non_owner = get_account(type="non_owner")
+    wallet_owner = get_account(type="wallet_owner")
+    print("Polybit Owner", polybit_owner_account.address)
+    
+    ##
+    #Deploy Polybit Access
+    ##
+    print("Deploying Access")
+    polybit_access = deploy_access.main(polybit_owner_account)
+
+    print("Polybit Owner", polybit_access.polybitOwner())
+    print("Rebalancer Owner", polybit_access.rebalancerOwner())
+    print("Router Owner", polybit_access.routerOwner())
+
+    tx = polybit_access.transferRebalancerOwnership(rebalancer_account.address, {"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    
+    tx = polybit_access.transferRouterOwnership(router_account.address, {"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+
+    print("Polybit Owner", polybit_access.polybitOwner())
+    print("Rebalancer Owner", polybit_access.rebalancerOwner())
+    print("Router Owner", polybit_access.routerOwner())
+
+    ##
+    #Deploy Config
+    ##
+    polybit_config = deploy_config.main(polybit_owner_account, polybit_access.address)
+    
+    tx = polybit_config.setDepositFee(50, {"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    print("Deposit Fee", polybit_config.getDepositFee())
+
+    tx = polybit_config.setPerformanceFee(1000, {"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    print("Performance Fee", polybit_config.getPerformanceFee())
+
+    tx = polybit_config.setFeeAddress(get_account(type="polybit_fee_address").address, {"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    print("Fee Address",polybit_config.getFeeAddress())
+    
+    ##
+    #Deploy Rebalancer
+    ##
+    polybit_rebalancer = deploy_rebalancer.main(polybit_owner_account)
+    tx = polybit_config.setPolybitRebalancerAddress(polybit_rebalancer.address,{"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    print("Rebalancer Address", polybit_config.getPolybitRebalancerAddress())
+
+    ##
+    #Deploy Router
+    ##
+    polybit_router = deploy_router.main(
+        polybit_owner_account,
+        polybit_access.address,
+        polybit_config.address,
         config["networks"][network.show_active()]["pancakeswap_factory_address"],
-        config["networks"][network.show_active()]["weth_address"],
     )
-    add_base_tokens_to_router(router, account)
+    add_base_tokens_to_router(polybit_router, polybit_access.routerOwner())
 
-    detf_factory = deploy_DETF_factory.main(
-        account, config["networks"][network.show_active()]["weth_address"]
+    tx = polybit_config.setPolybitRouterAddress(polybit_router.address,{"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    print("Router Address", polybit_config.getPolybitRouterAddress())
+     
+    polybit_detf_factory = deploy_DETF_factory.main(
+        polybit_owner_account, polybit_access.address, polybit_config.address
     )
 
-    detf_factory.setPolybitRebalancerAddress(rebalancer.address, {"from": account})
-    detf_factory.setPolybitRouterAddress(router.address, {"from": account})
-    detf_factory.setDepositFee(0, {"from": account})
-    detf_factory.setFeeAddress(account.address, {"from": account})
+    tx = polybit_config.setPolybitDETFFactoryAddress(polybit_detf_factory.address,{"from":polybit_owner_account})
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    print("DETF Factory Address", polybit_config.getPolybitDETFFactoryAddress())
 
+    ##
+    #Establish first DETF
+    ##
     product_id = 5610001000
     product_category = "BSC Index Top 10"
     product_dimension = "Market Cap"
 
     detf = deploy_DETF_from_factory.main(
-        account,
-        detf_factory.address,
-        account.address,
+        polybit_owner_account,
+        polybit_detf_factory.address,
+        wallet_owner,
         product_id,
         product_category,
         product_dimension,
     )
 
-    print("Product ID", detf.getProductId())
-    print("Product Category", detf.getProductCategory())
-    print("Product Dimension", detf.getProductDimension())
 
-    """
-    Data Check
-    """
-    print("Owned Assets", detf.getOwnedAssets())
-    print("ETH Balance", detf.getEthBalance())
-
-    """
-    Addresses
-    """
-    print("router", router.address)
-    print("rebalancer", rebalancer.address)
-    print("detf_factory", detf_factory.address)
+    ##
+    #Print Contract Info for Export
+    ##
+    print("router", polybit_router.address)
+    print("rebalancer", polybit_rebalancer.address)
+    print("detf_factory", polybit_detf_factory.address)
 
     print("DETF ABI")
     print(detf.abi)
 
     print("DETF Factory ABI")
-    print(detf_factory.abi)
+    print(polybit_detf_factory.abi)
 
     print("Rebalancer ABI")
-    print(rebalancer.abi)
+    print(polybit_rebalancer.abi)
 
     print("Router ABI")
-    print(router.abi)
+    print(polybit_router.abi)
 
-    lockDuration = 30 * 86400
+    ##
+    #First Programmatic Deposit
+    ##
+    lock_duration = 30 * 86400
     deposit_amount = Web3.toWei(1, "ether")
-    """
-    First Deposit/Rebalance
-    """
     owned_assets = []
     (
         target_assets,
         target_assets_weights,
         target_assets_prices,
     ) = get_target_assets(detf, TEST_ONE_ASSETS,TEST_ONE_WEIGHTS)
-    order_data = first_deposit_order_data(account,
+    order_data = first_deposit_order_data(
     detf,
-    rebalancer,
-    router,
+    polybit_rebalancer,
+    polybit_router,
     owned_assets,
     target_assets,
     target_assets_weights,
@@ -684,72 +750,41 @@ def main():
     deposit_amount)
 
     tx = detf.deposit(
-        time.time() + lockDuration, order_data, {"from": account, "value": deposit_amount}
+        time.time() + lock_duration, order_data, {"from": wallet_owner, "value": deposit_amount}
     )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
 
-    """
+    ##
+    #First rebalance
+    ##
+        """
     REBALANCE #1
     """
     print("REBALANCE #1")
     run_rebalance(
-        account,
+        rebalancer_account,
         detf,
-        rebalancer,
-        router,
+        polybit_rebalancer,
+        polybit_router,
         TEST_ONE_ASSETS,
         TEST_ONE_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
     print("Total Deposits", detf.getTotalDeposited())
 
-    """
-    REBALANCE #2
-    """
-    """ print("REBALANCE #2")
+    ##
+    #Second rebalance
+    ##
+    print("REBALANCE #2")
     run_rebalance(
-        account,
+        rebalancer_account,
         detf,
-        rebalancer,
-        router,
+        polybit_rebalancer,
+        polybit_router,
         TEST_TWO_ASSETS,
         TEST_TWO_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited()) """
-
-    """
-    REBALANCE #3
-    """
-    """ print("REBALANCE #3")
-    run_rebalance(
-        account,
-        detf,
-        rebalancer,
-        router,
-        TEST_THREE_ASSETS,
-        TEST_THREE_WEIGHTS,
-    )
-    print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited()) """
-
-    """
-    REBALANCE #4
-    """
-    """ print("REBALANCE #4")
-
-    detf.deposit(
-        time.time() + lockDuration, {"from": account, "value": Web3.toWei(5, "ether")}
-    )
-    run_rebalance(
-        account,
-        detf,
-        rebalancer,
-        router,
-        TEST_FOUR_ASSETS,
-        TEST_FOUR_WEIGHTS,
-    )
-    print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited()) """
+    print("Total Deposits", detf.getTotalDeposited()) 

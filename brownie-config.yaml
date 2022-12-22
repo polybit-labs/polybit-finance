@@ -37,8 +37,15 @@ networks:
     polygon-main:
         verify: False
 wallets:
-    owner_key: ${OWNER_PRIVATE_KEY}
+    polybit_owner: ${POLYBIT_OWNER_ADDRESS}
+    polybit_owner_key: ${POLYBIT_OWNER_PRIVATE_KEY}
+    rebalancer_owner: ${REBALANCER_OWNER_ADDRESS}
+    rebalancer_owner_key: ${REBALANCER_OWNER_PRIVATE_KEY}
+    router_owner: ${ROUTER_OWNER_ADDRESS}
+    router_owner_key: ${ROUTER_OWNER_PRIVATE_KEY}
+    wallet_owner_key: ${WALLET_OWNER_PRIVATE_KEY}
     non_owner_key: ${NON_OWNER_PRIVATE_KEY}
+    polybit_fee: ${POLYBIT_FEE_ADDRESS}
 dotenv: .env
 polybit-finance:
     version: 0.0.6

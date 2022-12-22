@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.7;
 
+import "./interfaces/IPolybitAccess.sol";
+import "./interfaces/IPolybitConfig.sol";
 import "./libraries/UniswapV2Library.sol";
 import "./libraries/TransferHelper.sol";
 import "./libraries/SafeMath.sol";
-import "./Ownable.sol";
 
-contract PolybitRouter is Ownable {
+contract PolybitRouter {
+    address public polybitAccessAddress;
+    IPolybitAccess polybitAccess;
+    address public polybitConfigAddress;
+    IPolybitConfig polybitConfig;
+
     using SafeMath for uint256;
 
     address internal immutable swapFactory;
-    address internal immutable weth;
+    address internal immutable wethAddress;
     uint256 internal slippage = 500;
 
     modifier ensure(uint256 deadline) {
@@ -20,16 +26,29 @@ contract PolybitRouter is Ownable {
     address[] internal baseTokens;
 
     constructor(
-        address _routerOwner,
-        address _swapFactory,
-        address _weth
+        address _polybitAccessAddress,
+        address _polybitConfigAddress,
+        address _swapFactory
     ) {
-        require(address(_routerOwner) != address(0));
-        _transferOwnership(_routerOwner);
         require(address(_swapFactory) != address(0));
-        require(address(_weth) != address(0));
+        polybitAccessAddress = _polybitAccessAddress;
+        polybitAccess = IPolybitAccess(polybitAccessAddress);
+        polybitConfigAddress = _polybitConfigAddress;
+        polybitConfig = IPolybitConfig(polybitConfigAddress);
         swapFactory = _swapFactory;
-        weth = _weth;
+        wethAddress = polybitConfig.getWethAddress();
+    }
+
+    modifier onlyRouterOwner() {
+        _checkRouterOwner();
+        _;
+    }
+
+    function _checkRouterOwner() internal view virtual {
+        require(
+            polybitAccess.routerOwner() == msg.sender,
+            "PolybitRouter: caller is not the routerOwner"
+        );
     }
 
     function getSwapFactory() external view returns (address) {
@@ -37,10 +56,10 @@ contract PolybitRouter is Ownable {
     }
 
     function getWethAddress() external view returns (address) {
-        return weth;
+        return wethAddress;
     }
 
-    function addBaseToken(address tokenAddress) external onlyOwner {
+    function addBaseToken(address tokenAddress) external onlyRouterOwner {
         bool tokenExists = false;
         if (baseTokens.length > 0) {
             for (uint256 i = 0; i < baseTokens.length; i++) {
@@ -53,7 +72,7 @@ contract PolybitRouter is Ownable {
         baseTokens.push(address(tokenAddress));
     }
 
-    function removeBaseToken(address tokenAddress) external onlyOwner {
+    function removeBaseToken(address tokenAddress) external onlyRouterOwner {
         bool tokenExists = false;
         if (baseTokens.length > 0) {
             for (uint256 i = 0; i < baseTokens.length; i++) {
@@ -79,7 +98,7 @@ contract PolybitRouter is Ownable {
         return baseTokens;
     }
 
-    function setSlippage(uint256 _slippage) external onlyOwner {
+    function setSlippage(uint256 _slippage) external onlyRouterOwner {
         slippage = _slippage;
     }
 
@@ -114,7 +133,7 @@ contract PolybitRouter is Ownable {
         address token = address(0);
         uint256 tokenAmount = 0;
 
-        if (tokenIn == weth) {
+        if (tokenIn == wethAddress) {
             token = tokenOut;
             tokenAmount = tokenAmountOut;
         } else {
@@ -122,10 +141,13 @@ contract PolybitRouter is Ownable {
             tokenAmount = tokenAmountIn;
         }
 
-        if (UniswapV2Library.pairFor(swapFactory, weth, token) != address(0)) {
+        if (
+            UniswapV2Library.pairFor(swapFactory, wethAddress, token) !=
+            address(0)
+        ) {
             (, uint256 tokenLiquidity) = UniswapV2Library.getReserves(
                 swapFactory,
-                weth,
+                wethAddress,
                 token
             );
             if (tokenLiquidity > (2 * tokenAmount)) {

@@ -1,62 +1,96 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.7;
 
+import "./interfaces/IPolybitAccess.sol";
+import "./interfaces/IPolybitConfig.sol";
 import "./interfaces/IPolybitDETFFactory.sol";
 import "./interfaces/IPolybitRebalancer.sol";
 import "./interfaces/IPolybitRouter.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/SafeERC20.sol";
-import "./Ownable.sol";
 
-contract PolybitDETF is Ownable {
-    address public walletOwner;
+contract PolybitDETF {
+    address public polybitAccessAddress;
+    IPolybitAccess polybitAccess;
+    address public polybitConfigAddress;
+    IPolybitConfig polybitConfig;
     address public polybitDETFFactoryAddress;
     IPolybitDETFFactory polybitDETFFactory;
+    address public immutable walletOwner;
     uint256 internal productId;
     string internal productCategory;
     string internal productDimension;
     address internal wethAddress;
     IWETH wethToken;
     address[] internal ownedAssets;
-    uint256[][] public deposits;
+    uint256[][] internal deposits;
     uint256 internal lastRebalance = 0;
     uint256 internal creationTimestamp = 0;
     uint256 internal closeTimestamp = 0;
     uint256 internal timeLock = 0;
+    uint256 internal status = 1; //Set status to active (0 = inactive, 1 = active)
     uint256 internal finalBalanceInWeth = 0;
-    uint256 internal detfStatus = 1; //Set status to active (0 = inactive, 1 = active)
+    address[] internal finalTokenList;
+    uint256[] internal finalTokenBalances;
+    uint256[] internal finalTokenBalancesInWeth;
 
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
 
     constructor(
-        address _owner,
-        address _walletOwner,
+        address _polybitAccessAddress,
+        address _polybitConfigAddress,
+        address _walletOwnerAddress,
         address _polybitDETFFactoryAddress,
         uint256 _productId,
         string memory _productCategory,
         string memory _productDimension
     ) {
-        require(address(_owner) != address(0));
-        require(address(_walletOwner) != address(0));
+        require(address(_walletOwnerAddress) != address(0));
         require(address(_polybitDETFFactoryAddress) != address(0));
         require(_productId > 0);
-        _transferOwnership(_owner);
-        walletOwner = _walletOwner;
+        polybitAccessAddress = _polybitAccessAddress;
+        polybitAccess = IPolybitAccess(polybitAccessAddress);
+        polybitConfigAddress = _polybitConfigAddress;
+        polybitConfig = IPolybitConfig(polybitConfigAddress);
         polybitDETFFactoryAddress = _polybitDETFFactoryAddress;
         polybitDETFFactory = IPolybitDETFFactory(polybitDETFFactoryAddress);
+        walletOwner = _walletOwnerAddress;
         productId = _productId;
         productCategory = _productCategory;
         productDimension = _productDimension;
-        wethAddress = polybitDETFFactory.getWethAddress();
+        wethAddress = polybitConfig.getWethAddress();
         wethToken = IWETH(wethAddress);
         creationTimestamp = block.timestamp;
     }
 
-    receive() external payable {}
+    modifier onlyAuthorized() {
+        _checkOnlyAuthorized();
+        _;
+    }
 
-    fallback() external payable {}
+    function _checkOnlyAuthorized() internal view virtual {
+        require(
+            polybitAccess.rebalancerOwner() == msg.sender ||
+                walletOwner == msg.sender,
+            "PolybitDETF: caller is not the rebalancerOwner or walletOwner"
+        );
+    }
+
+    modifier onlyWalletOwner() {
+        _checkWalletOwner();
+        _;
+    }
+
+    function _checkWalletOwner() internal view virtual {
+        require(
+            walletOwner == msg.sender,
+            "PolybitDETF: caller is not the walletOwner"
+        );
+    }
+
+    receive() external payable {}
 
     function getProductId() external view returns (uint256) {
         return productId;
@@ -71,10 +105,10 @@ contract PolybitDETF is Ownable {
     }
 
     function getDETFStatus() external view returns (uint256) {
-        return detfStatus;
+        return status;
     }
 
-    function setTimeLock(uint256 unixTimeLock) public {
+    function setTimeLock(uint256 unixTimeLock) public onlyWalletOwner {
         require(
             unixTimeLock > block.timestamp,
             "Unlock time should be in the future"
@@ -107,6 +141,7 @@ contract PolybitDETF is Ownable {
     function deposit(uint256 lockTimestamp, SwapOrders[] memory orderData)
         public
         payable
+        onlyWalletOwner
     {
         if (lockTimestamp > 0) {
             setTimeLock(lockTimestamp);
@@ -139,6 +174,18 @@ contract PolybitDETF is Ownable {
 
     function getFinalBalance() external view returns (uint256) {
         return finalBalanceInWeth;
+    }
+
+    function getFinalAssets()
+        external
+        view
+        returns (
+            address[] memory,
+            uint256[] memory,
+            uint256[] memory
+        )
+    {
+        return (finalTokenList, finalTokenBalances, finalTokenBalancesInWeth);
     }
 
     function processFee(
@@ -206,7 +253,7 @@ contract PolybitDETF is Ownable {
         address[] memory adjustToSellList,
         address[] memory adjustToBuyList,
         address[] memory buyList
-    ) public {
+    ) internal {
         // Reset ownedAssets to be an empty array
         delete ownedAssets;
 
@@ -274,11 +321,11 @@ contract PolybitDETF is Ownable {
         uint256 totalBalance;
     }
 
-    function rebalance(SwapOrders[] memory orderData) public {
+    function rebalance(SwapOrders[] memory orderData) internal {
         lastRebalance = block.timestamp;
         OrdersInfo memory ordersInfo;
 
-        address polybitRebalancerAddress = polybitDETFFactory
+        address polybitRebalancerAddress = polybitConfig
             .getPolybitRebalancerAddress();
         IPolybitRebalancer polybitRebalancer = IPolybitRebalancer(
             polybitRebalancerAddress
@@ -404,6 +451,13 @@ contract PolybitDETF is Ownable {
         );
     }
 
+    function rebalanceDETF(SwapOrders[] memory orderData)
+        external
+        onlyAuthorized
+    {
+        rebalance(orderData);
+    }
+
     event SwapSuccess(string msg, uint256[], address);
     event SwapFailure(string msg, uint256, uint256, address[]);
 
@@ -411,9 +465,8 @@ contract PolybitDETF is Ownable {
         uint256 amountIn,
         uint256 amountOut,
         address[] memory path
-    ) public {
-        address polybitRouterAddress = polybitDETFFactory
-            .getPolybitRouterAddress();
+    ) internal {
+        address polybitRouterAddress = polybitConfig.getPolybitRouterAddress();
         IPolybitRouter polybitRouter = IPolybitRouter(polybitRouterAddress);
         uint256 amountOutMin = ((10000 - polybitRouter.getSlippage()) *
             amountOut) / 10000; // e.g. 0.05% calculated as 50/10000
@@ -573,12 +626,18 @@ contract PolybitDETF is Ownable {
         SwapOrder[] sellOrders;
     }
 
-    function sellToClose(SellToCloseSwapOrders[] memory orderData) public {
+    function sellToClose(SellToCloseSwapOrders[] memory orderData)
+        external
+        onlyAuthorized
+    {
         require(
             block.timestamp >= timeLock,
             "The wallet is locked. Check the time left."
         );
-        detfStatus = 0; // Set status to inactive
+        status = 0; // Set status to inactive
+        finalTokenList = orderData[0].sellList;
+        finalTokenBalances = orderData[0].sellOrders[0].amountsIn;
+        finalTokenBalancesInWeth = orderData[0].sellOrders[0].amountsOut;
         delete ownedAssets; // Clear owned assets list
         closeTimestamp = block.timestamp;
 
@@ -606,8 +665,8 @@ contract PolybitDETF is Ownable {
             uint256 profit = wethBalance - totalDeposited;
             processFee(
                 profit,
-                polybitDETFFactory.getPerformanceFee(),
-                polybitDETFFactory.getFeeAddress()
+                polybitConfig.getPerformanceFee(),
+                polybitConfig.getFeeAddress()
             );
         }
 

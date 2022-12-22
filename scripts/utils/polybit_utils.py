@@ -21,11 +21,25 @@ def get_account(index=None, id=None, type=None):
         return accounts[index]
     if id:
         return accounts.load(id)
-    if (type == "owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
+    if (type == "polybit_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
         return accounts[0]
-    if (type == "non_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
+    if (type == "rebalancer_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
         return accounts[1]
-    if type == "owner":
-        return accounts.add(config["wallets"]["owner_key"])
+    if (type == "router_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
+        return accounts[2]
+    if (type == "wallet_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
+        return accounts[3]
+    if (type == "non_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
+        return accounts[4]
+    if (type == "polybit_fee_address") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
+        return accounts[5]
+    if type == "polybit_owner":
+        return accounts.add(config["wallets"]["polybit_owner_key"])
+    if type == "rebalancer":
+        return accounts.add(config["wallets"]["rebalancer_key"])
+    if type == "router":
+        return accounts.add(config["wallets"]["router_key"])
+    if type == "wallet_owner":
+        return accounts.add(config["wallets"]["wallet_owner_key"])
     if type == "non_owner":
         return accounts.add(config["wallets"]["non_owner_key"])
