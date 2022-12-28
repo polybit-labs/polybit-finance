@@ -1,5 +1,6 @@
 from brownie import network, accounts, config
 
+POLYBIT_FORKED_ENVIRONMENTS = ["polybit-bsc-fork"]
 NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = ["development", "ganache-local"]
 LOCAL_BLOCKCHAIN_ENVIRONMENTS = NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS + [
     "mainnet-fork",
@@ -21,6 +22,7 @@ def get_account(index=None, id=None, type=None):
         return accounts[index]
     if id:
         return accounts.load(id)
+
     if (type == "polybit_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
         return accounts[0]
     if (type == "rebalancer_owner") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
@@ -33,6 +35,20 @@ def get_account(index=None, id=None, type=None):
         return accounts[4]
     if (type == "polybit_fee_address") & (network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS):
         return accounts[5]
+
+    if (type == "polybit_owner") & (network.show_active() in POLYBIT_FORKED_ENVIRONMENTS):
+        return accounts.add(config["wallets"]["test_polybit_owner_key"])
+    if (type == "rebalancer_owner") & (network.show_active() in POLYBIT_FORKED_ENVIRONMENTS):
+        return accounts.add(config["wallets"]["test_rebalancer_owner_key"])
+    if (type == "router_owner") & (network.show_active() in POLYBIT_FORKED_ENVIRONMENTS):
+        return accounts.add(config["wallets"]["test_router_owner_key"])
+    if (type == "wallet_owner") & (network.show_active() in POLYBIT_FORKED_ENVIRONMENTS):
+        return accounts.add(config["wallets"]["test_wallet_owner_key"])
+    if (type == "non_owner") & (network.show_active() in POLYBIT_FORKED_ENVIRONMENTS):
+        return accounts.add(config["wallets"]["test_non_owner_key"])
+    if (type == "polybit_fee_address") & (network.show_active() in POLYBIT_FORKED_ENVIRONMENTS):
+        return accounts.add(config["wallets"]["test_polybit_fee_key"])
+
     if type == "polybit_owner":
         return accounts.add(config["wallets"]["polybit_owner_key"])
     if type == "rebalancer":
