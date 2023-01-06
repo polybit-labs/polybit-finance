@@ -120,7 +120,7 @@ contract PolybitDETF {
         return timeLock;
     }
 
-    function getTimeLockRemaining() external view returns (uint256) {
+    function getTimeLockRemaining() public view returns (uint256) {
         if (timeLock > block.timestamp) {
             return timeLock - block.timestamp;
         } else {
@@ -134,6 +134,41 @@ contract PolybitDETF {
 
     function getCloseTimestamp() external view returns (uint256) {
         return closeTimestamp;
+    }
+
+    struct DETFAccountDetail {
+        uint256 status;
+        uint256 creationTimestamp;
+        uint256 closeTimestamp;
+        uint256 productId;
+        string productCategory;
+        string productDimension;
+        uint256[][] deposits;
+        uint256 totalDeposited;
+        uint256 timeLock;
+        uint256 timeLockRemaining;
+        uint256 finalBalanceInWeth;
+    }
+
+    function getDETFAccountDetail()
+        external
+        view
+        returns (DETFAccountDetail memory)
+    {
+        DETFAccountDetail memory data;
+
+        data.status = status;
+        data.creationTimestamp = creationTimestamp;
+        data.closeTimestamp = closeTimestamp;
+        data.productId = productId;
+        data.productCategory = productCategory;
+        data.productDimension = productDimension;
+        data.deposits = deposits;
+        data.totalDeposited = getTotalDeposited();
+        data.timeLock = timeLock;
+        data.timeLockRemaining = getTimeLockRemaining();
+        data.finalBalanceInWeth = finalBalanceInWeth;
+        return data;
     }
 
     event EthBalance(string, uint256);

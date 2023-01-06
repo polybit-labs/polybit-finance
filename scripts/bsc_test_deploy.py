@@ -17,41 +17,37 @@ cg = CoinGeckoAPI(api_key=config["data_providers"]["coingecko"])
 BNBUSD = cg.get_coin_by_id("binancecoin")["market_data"]["current_price"]["usd"]
 
 TEST_ONE_ASSETS = [
-    "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
-    "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
-    "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
-    # "0xfb6115445bff7b52feb98650c87f44907e58f802",  # $0 liquidity test token AAVE
-    "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
-    "0x477bC8d23c634C154061869478bce96BE6045D12",
+    "0x629495808b0BdE749e4058832CCf2D1cdA4abCeF",
+    "0x7049d503d845A32C174C1d8EA2a8A7AaD05672D7",
+    "0x8DDa9b090421D031617Bde0766Dc1EC27AB4c33a",
+    "0x337E22035DC87Acd5D182B62A0F056aBAFF1e63C"
 ]
 
 TEST_ONE_WEIGHTS = [
-    10**8 * (1 / 5),
-    10**8 * (1 / 5),
-    10**8 * (1 / 5),
-    10**8 * (1 / 5),
-    10**8 * (1 / 5),
+    10**8 * (1 / 4),
+    10**8 * (1 / 4),
+    10**8 * (1 / 4),
+    10**8 * (1 / 4),
+    10**8 * (1 / 4),
 ]
 
 TEST_TWO_ASSETS = [
-    "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
-    "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
-    "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
-    "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
+    "0x629495808b0BdE749e4058832CCf2D1cdA4abCeF",
+    "0x7049d503d845A32C174C1d8EA2a8A7AaD05672D7",
+    "0x8DDa9b090421D031617Bde0766Dc1EC27AB4c33a",
 ]
 
 TEST_TWO_WEIGHTS = [
-    10**8 * (1 / 4),
-    10**8 * (1 / 4),
-    10**8 * (1 / 4),
-    10**8 * (1 / 4),
+    10**8 * (1 / 3),
+    10**8 * (1 / 3),
+    10**8 * (1 / 3),
 ]
 
 TEST_THREE_ASSETS = [
-    "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
-    "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
-    "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
-    "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
+    "0x629495808b0BdE749e4058832CCf2D1cdA4abCeF",
+    "0x7049d503d845A32C174C1d8EA2a8A7AaD05672D7",
+    "0x8DDa9b090421D031617Bde0766Dc1EC27AB4c33a",
+    "0x337E22035DC87Acd5D182B62A0F056aBAFF1e63C"
 ]
 
 TEST_THREE_WEIGHTS = [
@@ -86,22 +82,29 @@ def get_coingecko_price(token_address):
 
 
 def add_base_tokens_to_router(router, account):
-    router.addBaseToken(
+    tx = router.addBaseToken(
         config["networks"][network.show_active()]["weth_address"],
         {"from": account},
     )
-    router.addBaseToken(
+    tx.wait(1)
+
+    tx = router.addBaseToken(
         config["networks"][network.show_active()]["busd_address"],
         {"from": account},
     )
-    router.addBaseToken(
+    tx.wait(1)
+
+    tx = router.addBaseToken(
         config["networks"][network.show_active()]["usdt_address"],
         {"from": account},
     )
-    router.addBaseToken(
+    tx.wait(1)
+
+    tx = router.addBaseToken(
         config["networks"][network.show_active()]["usdc_address"],
         {"from": account},
     )
+    tx.wait(1)
 
 def first_deposit_order_data(
     detf,
@@ -590,6 +593,7 @@ def main():
     router_account = get_account(type="router_owner")
     non_owner = get_account(type="non_owner")
     wallet_owner = get_account(type="wallet_owner")
+    fee_address = get_account(type="polybit_fee_address")
     print("Polybit Owner", polybit_owner_account.address)
     
     ##
@@ -633,7 +637,7 @@ def main():
         print(tx.events[i])
     print("Performance Fee", polybit_config.getPerformanceFee())
 
-    tx = polybit_config.setFeeAddress(get_account(type="polybit_fee_address").address, {"from":polybit_owner_account})
+    tx = polybit_config.setFeeAddress(fee_address.address, {"from":polybit_owner_account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
@@ -676,7 +680,7 @@ def main():
         print(tx.events[i])
     print("DETF Factory Address", polybit_config.getPolybitDETFFactoryAddress())
 
-    """ ##
+    ##
     #Establish first DETF
     ##
     product_id = 5610001000
@@ -690,7 +694,7 @@ def main():
         product_id,
         product_category,
         product_dimension,
-    ) """
+    )
 
 
     ##
@@ -701,8 +705,8 @@ def main():
     print("detf_factory", polybit_detf_factory.address)
     print("config",polybit_config.address)
 
-    """ print("DETF ABI")
-    print(detf.abi) """
+    print("DETF ABI")
+    print(detf.abi)
 
     print("DETF Factory ABI")
     print(polybit_detf_factory.abi)

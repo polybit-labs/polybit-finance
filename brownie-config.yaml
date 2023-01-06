@@ -12,11 +12,11 @@ networks:
     ganache-local:
         verify: False
     bsc-test:
-        weth_address: "0x1e33833a035069f42d68D1F53b341643De1C018D"
-        busd_address: "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee"
-        usdt_address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
-        usdc_address: "0x64544969ed7EBf5f083679233325356EbE738930"
-        pancakeswap_factory_address: "0x6725F303b657a9451d8BA641348b6761A6CC7a17"
+        weth_address: "0x652415C1E99FE1dD82b18C55C8Fe74B1EE933243"
+        busd_address: "0xE3c966bc5529aD7219B49F69Ab01AC05d0E153F6"
+        usdt_address: "0x3F0ab9b22e64645a1BEfA84f6B888C71A2798c94"
+        usdc_address: "0xd533F685Ae10F7DD61eCC03fbe47358084b4E8ac"
+        pancakeswap_factory_address: "0x5Ef9badaa090c5837427d16a5761CbFFDACF5Fa8"
         verify: False
     bsc-main:
         weth_address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
@@ -53,6 +53,7 @@ wallets:
     wallet_owner_key: ${WALLET_OWNER_PRIVATE_KEY}
     non_owner_key: ${NON_OWNER_PRIVATE_KEY}
     polybit_fee: ${POLYBIT_FEE_ADDRESS}
+    polybit_fee_key: ${POLYBIT_FEE_ADDRESS_PRIVATE_KEY}
     test_polybit_owner: ${TEST_POLYBIT_OWNER_ADDRESS}
     test_polybit_owner_key: ${TEST_POLYBIT_OWNER_PRIVATE_KEY}
     test_rebalancer_owner: ${TEST_REBALANCER_OWNER_ADDRESS}

@@ -162,7 +162,7 @@ contract PolybitRouter {
             }
         }
 
-        for (uint256 i = 1; i < baseTokens.length; i++) {
+        /* for (uint256 i = 1; i < baseTokens.length; i++) {
             if (
                 UniswapV2Library.pairFor(swapFactory, baseTokens[i], token) !=
                 address(0)
@@ -190,7 +190,7 @@ contract PolybitRouter {
                     }
                 }
             }
-        }
+        } */
 
         if (dualPathAmountsOut > triPathAmountsOut) {
             bestPath = dualPath;
