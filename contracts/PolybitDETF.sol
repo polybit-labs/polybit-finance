@@ -25,6 +25,7 @@ contract PolybitDETF {
     IWETH wethToken;
     address[] internal ownedAssets;
     uint256[][] internal deposits;
+    uint256[][] public fees;
     uint256 internal lastRebalance = 0;
     uint256 internal creationTimestamp = 0;
     uint256 internal closeTimestamp = 0;
@@ -65,12 +66,12 @@ contract PolybitDETF {
         creationTimestamp = block.timestamp;
     }
 
-    modifier onlyAuthorized() {
-        _checkOnlyAuthorized();
+    modifier onlyAuthorised() {
+        _checkOnlyAuthorised();
         _;
     }
 
-    function _checkOnlyAuthorized() internal view virtual {
+    function _checkOnlyAuthorised() internal view virtual {
         require(
             polybitAccess.rebalancerOwner() == msg.sender ||
                 walletOwner == msg.sender,
@@ -145,6 +146,7 @@ contract PolybitDETF {
         string productDimension;
         uint256[][] deposits;
         uint256 totalDeposited;
+        uint256[][] fees;
         uint256 timeLock;
         uint256 timeLockRemaining;
         uint256 finalBalanceInWeth;
@@ -165,6 +167,7 @@ contract PolybitDETF {
         data.productDimension = productDimension;
         data.deposits = deposits;
         data.totalDeposited = getTotalDeposited();
+        data.fees = fees;
         data.timeLock = timeLock;
         data.timeLockRemaining = getTimeLockRemaining();
         data.finalBalanceInWeth = finalBalanceInWeth;
@@ -191,7 +194,11 @@ contract PolybitDETF {
             deposits.push([block.timestamp, ethBalance]);
             emit Deposited("Deposited ETH into DETF", ethBalance);
             wrapETH();
-            //processFee(getWethBalance(),polybitDETFFactory.getDepositFee(),polybitDETFFactory.getFeeAddress());
+            processFee(
+                getWethBalance(),
+                polybitConfig.getDepositFee(),
+                polybitConfig.getFeeAddress()
+            );
         }
     }
 
@@ -223,6 +230,8 @@ contract PolybitDETF {
         return (finalTokenList, finalTokenBalances, finalTokenBalancesInWeth);
     }
 
+    event ProcessFee(string, uint256);
+
     function processFee(
         uint256 inputAmount,
         uint256 fee,
@@ -230,7 +239,9 @@ contract PolybitDETF {
     ) internal {
         uint256 feeAmount = (inputAmount * fee) / 10000;
         uint256 cachedFeeAmount = feeAmount;
+        fees.push([block.timestamp, feeAmount]);
         feeAmount = 0;
+        emit ProcessFee("Fee paid", feeAmount);
         IERC20(wethAddress).safeTransfer(feeAddress, cachedFeeAmount);
     }
 
@@ -365,39 +376,52 @@ contract PolybitDETF {
         IPolybitRebalancer polybitRebalancer = IPolybitRebalancer(
             polybitRebalancerAddress
         );
+        address polybitRouterAddress = polybitConfig.getPolybitRouterAddress();
+        IPolybitRouter polybitRouter = IPolybitRouter(polybitRouterAddress);
 
         checkForDeposits();
 
-        for (uint256 i = 0; i < orderData[0].sellList.length; i++) {
-            if (orderData[0].sellList[i] != address(0)) {
-                if (orderData[0].sellOrders[0].path[i].length > 0) {
+        // SELL ORDERS
+        if (orderData[0].sellList.length > 0) {
+            for (uint256 i = 0; i < orderData[0].sellList.length; i++) {
+                if (orderData[0].sellList[i] != address(0)) {
+                    if (orderData[0].sellOrders[0].path[i].length > 0) {
+                        swap(
+                            orderData[0].sellOrders[0].amountsIn[i],
+                            orderData[0].sellOrders[0].amountsOut[i],
+                            orderData[0].sellOrders[0].path[i],
+                            polybitRouterAddress,
+                            polybitRouter
+                        );
+                    } else {
+                        emit LiquidityTest(
+                            "PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN"
+                        );
+                    }
+                }
+            }
+        }
+
+        // ADJUST TO SELL ORDERS
+        if (orderData[0].adjustToSellList.length > 0) {
+            for (
+                uint256 i = 0;
+                i < orderData[0].adjustToSellOrders[0].swapFactory.length;
+                i++
+            ) {
+                if (orderData[0].adjustToSellOrders[0].path[i].length > 0) {
                     swap(
-                        orderData[0].sellOrders[0].amountsIn[i],
-                        orderData[0].sellOrders[0].amountsOut[i],
-                        orderData[0].sellOrders[0].path[i]
+                        orderData[0].adjustToSellOrders[0].amountsIn[i],
+                        orderData[0].adjustToSellOrders[0].amountsOut[i],
+                        orderData[0].adjustToSellOrders[0].path[i],
+                        polybitRouterAddress,
+                        polybitRouter
                     );
                 } else {
                     emit LiquidityTest(
                         "PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN"
                     );
                 }
-            }
-        }
-
-        // ADJUST TO SELL ORDERS
-        for (
-            uint256 i = 0;
-            i < orderData[0].adjustToSellOrders[0].swapFactory.length;
-            i++
-        ) {
-            if (orderData[0].adjustToSellOrders[0].path[i].length > 0) {
-                swap(
-                    orderData[0].adjustToSellOrders[0].amountsIn[i],
-                    orderData[0].adjustToSellOrders[0].amountsOut[i],
-                    orderData[0].adjustToSellOrders[0].path[i]
-                );
-            } else {
-                emit LiquidityTest("PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN");
             }
         }
 
@@ -439,7 +463,9 @@ contract PolybitDETF {
                         swap(
                             ordersInfo.adjustToBuyListAmountsIn[i],
                             ordersInfo.adjustToBuyListAmountsOut[i],
-                            orderData[0].adjustToBuyOrders[0].path[i]
+                            orderData[0].adjustToBuyOrders[0].path[i],
+                            polybitRouterAddress,
+                            polybitRouter
                         );
                     } else {
                         emit LiquidityTest(
@@ -469,7 +495,9 @@ contract PolybitDETF {
                         swap(
                             ordersInfo.buyListAmountsIn[i],
                             ordersInfo.buyListAmountsOut[i],
-                            orderData[0].buyOrders[0].path[i]
+                            orderData[0].buyOrders[0].path[i],
+                            polybitRouterAddress,
+                            polybitRouter
                         );
                     } else {
                         emit LiquidityTest(
@@ -488,21 +516,22 @@ contract PolybitDETF {
 
     function rebalanceDETF(SwapOrders[] memory orderData)
         external
-        onlyAuthorized
+        onlyAuthorised
     {
         rebalance(orderData);
     }
 
-    event SwapSuccess(string msg, uint256[], address);
+    event SwapSuccess(string msg, uint256, uint256, address);
     event SwapFailure(string msg, uint256, uint256, address[]);
+    event Amounts(string msg, uint256[] ref);
 
     function swap(
         uint256 amountIn,
         uint256 amountOut,
-        address[] memory path
+        address[] memory path,
+        address polybitRouterAddress,
+        IPolybitRouter polybitRouter
     ) internal {
-        address polybitRouterAddress = polybitConfig.getPolybitRouterAddress();
-        IPolybitRouter polybitRouter = IPolybitRouter(polybitRouterAddress);
         uint256 amountOutMin = ((10000 - polybitRouter.getSlippage()) *
             amountOut) / 10000; // e.g. 0.05% calculated as 50/10000
         uint256 deadline = block.timestamp + 30;
@@ -510,25 +539,24 @@ contract PolybitDETF {
         IERC20 token = IERC20(path[0]);
         require(
             token.approve(address(polybitRouterAddress), amountIn),
-            "TOKEN approve failed"
+            "PolybitDETF: TOKEN_APPROVE_FAILED"
         );
 
-        try
-            polybitRouter.swapTokens(
-                amountIn,
-                amountOutMin,
-                path,
-                recipient,
-                deadline
-            )
-        returns (uint256[] memory result) {
-            emit SwapSuccess("success", result, path[0]);
-        } catch {
-            emit SwapFailure("failed......", amountIn, amountOut, path);
-        }
+        uint256[] memory routerAmounts = polybitRouter.swapTokens(
+            amountIn,
+            amountOutMin,
+            path,
+            recipient,
+            deadline
+        );
+        require(
+            routerAmounts[1] >= amountOutMin,
+            "PolybitDETF: SWAP_FAILED_MIN_OUT"
+        );
+
         require(
             token.approve(address(polybitRouterAddress), 0),
-            "TOKEN revoke approval failed"
+            "PolybitDETF: TOKEN_REVOKE_APPROVE_FAILED"
         );
     }
 
@@ -655,15 +683,9 @@ contract PolybitDETF {
 
     event SellToClose(string msg, uint256 ref);
 
-    struct SellToCloseSwapOrders {
-        address[] sellList;
-        uint256[] sellListPrices;
-        SwapOrder[] sellOrders;
-    }
-
-    function sellToClose(SellToCloseSwapOrders[] memory orderData)
+    function sellToClose(SwapOrders[] memory orderData)
         external
-        onlyAuthorized
+        onlyAuthorised
     {
         require(
             block.timestamp >= timeLock,
@@ -676,21 +698,7 @@ contract PolybitDETF {
         delete ownedAssets; // Clear owned assets list
         closeTimestamp = block.timestamp;
 
-        for (uint256 i = 0; i < orderData[0].sellList.length; i++) {
-            if (orderData[0].sellList[i] != address(0)) {
-                if (orderData[0].sellOrders[0].path[i].length > 0) {
-                    swap(
-                        orderData[0].sellOrders[0].amountsIn[i],
-                        orderData[0].sellOrders[0].amountsOut[i],
-                        orderData[0].sellOrders[0].path[i]
-                    );
-                } else {
-                    emit LiquidityTest(
-                        "PolybitRouter: CANNOT_GET_PATH_FOR_TOKEN"
-                    );
-                }
-            }
-        }
+        rebalance(orderData);
 
         uint256 totalDeposited = getTotalDeposited();
         uint256 wethBalance = getWethBalance();

@@ -12,11 +12,18 @@ networks:
     ganache-local:
         verify: False
     bsc-test:
-        weth_address: "0x652415C1E99FE1dD82b18C55C8Fe74B1EE933243"
-        busd_address: "0xE3c966bc5529aD7219B49F69Ab01AC05d0E153F6"
-        usdt_address: "0x3F0ab9b22e64645a1BEfA84f6B888C71A2798c94"
-        usdc_address: "0xd533F685Ae10F7DD61eCC03fbe47358084b4E8ac"
-        pancakeswap_factory_address: "0x5Ef9badaa090c5837427d16a5761CbFFDACF5Fa8"
+        weth_address: "0x02aFD405C64Ac004c08e7f50dEA82Db3403229E2"
+        busd_address: "0x1F3365d318Dc1C81777B9977F8b466fdd1614FdB"
+        usdt_address: "0xfC00cA596A25B1CfF691EA612D007AfAd5C4bC71"
+        usdc_address: "0x25Cd00ece2B3Cd1C28b1e3cbe135Ff51F7c40E9d"
+        pancakeswap_factory_address: "0x13E14c10a67d7D4A9EC9E0761bdC878ef01AeC15"
+        verify: False
+    bsc-test-blast:
+        weth_address: "0x02aFD405C64Ac004c08e7f50dEA82Db3403229E2"
+        busd_address: "0x1F3365d318Dc1C81777B9977F8b466fdd1614FdB"
+        usdt_address: "0xfC00cA596A25B1CfF691EA612D007AfAd5C4bC71"
+        usdc_address: "0x25Cd00ece2B3Cd1C28b1e3cbe135Ff51F7c40E9d"
+        pancakeswap_factory_address: "0x13E14c10a67d7D4A9EC9E0761bdC878ef01AeC15"
         verify: False
     bsc-main:
         weth_address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"

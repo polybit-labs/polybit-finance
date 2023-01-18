@@ -20,7 +20,6 @@ TEST_ONE_ASSETS = [
     "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
     "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
     "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
-    # "0xfb6115445bff7b52feb98650c87f44907e58f802",  # $0 liquidity test token AAVE
     "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
     "0x477bC8d23c634C154061869478bce96BE6045D12",
 ]
@@ -104,7 +103,6 @@ def add_base_tokens_to_router(router, account):
     )
 
 def first_deposit_order_data(
-    detf,
     rebalancer,
     router,
     owned_assets,
@@ -119,7 +117,7 @@ def first_deposit_order_data(
     print("Buy List Weights", buyListWeights)
     print("Buy List Prices", buyListPrices)
 
-    wethBalance = detf.getWethBalance() + int(weth_input_amount)
+    wethBalance = int(weth_input_amount)
 
     # Begin buy orders
     totalTargetPercentage = 0
@@ -676,7 +674,7 @@ def main():
         print(tx.events[i])
     print("DETF Factory Address", polybit_config.getPolybitDETFFactoryAddress())
 
-    """ ##
+    ##
     #Establish first DETF
     ##
     product_id = 5610001000
@@ -690,7 +688,7 @@ def main():
         product_id,
         product_category,
         product_dimension,
-    ) """
+    )
 
 
     ##
@@ -716,7 +714,7 @@ def main():
     print("Config ABI")
     print(polybit_config.abi)
 
-    """ ##
+    ##
     #First Programmatic Deposit
     ##
     lock_duration = 30 * 86400
@@ -728,22 +726,29 @@ def main():
         target_assets_prices,
     ) = get_target_assets(detf, TEST_ONE_ASSETS,TEST_ONE_WEIGHTS)
     order_data = first_deposit_order_data(
-    detf,
     polybit_rebalancer,
     polybit_router,
     owned_assets,
     target_assets,
     target_assets_weights,
     target_assets_prices,
-    deposit_amount) """
+    deposit_amount)
 
-    """ tx = detf.deposit(
+    tx = detf.deposit(
         time.time() + lock_duration, order_data, {"from": wallet_owner, "value": deposit_amount}
     )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
 
+    deposit_fees = detf.getDepositFees()
+
+
+    print("Deposit fee", deposit_fees)
+    print("account data", detf.getDETFAccountDetail())
+    print("deposit fees",detf.fees())
+    #print("%", deposit_fees/deposit_amount)
+    """
     ##
     #First rebalance
     ##

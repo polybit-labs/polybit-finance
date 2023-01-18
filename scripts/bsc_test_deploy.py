@@ -17,14 +17,13 @@ cg = CoinGeckoAPI(api_key=config["data_providers"]["coingecko"])
 BNBUSD = cg.get_coin_by_id("binancecoin")["market_data"]["current_price"]["usd"]
 
 TEST_ONE_ASSETS = [
-    "0x629495808b0BdE749e4058832CCf2D1cdA4abCeF",
-    "0x7049d503d845A32C174C1d8EA2a8A7AaD05672D7",
-    "0x8DDa9b090421D031617Bde0766Dc1EC27AB4c33a",
-    "0x337E22035DC87Acd5D182B62A0F056aBAFF1e63C"
+    "0x22fe6Bdb93075d64EC28C12d08DBD735dfa54e68",
+    "0x29D37d4c09e30368C018AE970BaF6b6BCb189A17",
+    "0xd00248Ec6A3eC6b44e0B52036EE8Ccd52eb584CC",
+    "0x85684F35C4e092176551F1244098630438480898"
 ]
 
 TEST_ONE_WEIGHTS = [
-    10**8 * (1 / 4),
     10**8 * (1 / 4),
     10**8 * (1 / 4),
     10**8 * (1 / 4),
@@ -704,6 +703,7 @@ def main():
     print("rebalancer", polybit_rebalancer.address)
     print("detf_factory", polybit_detf_factory.address)
     print("config",polybit_config.address)
+    print("access",polybit_access.address)
 
     print("DETF ABI")
     print(detf.abi)
@@ -719,6 +719,9 @@ def main():
 
     print("Config ABI")
     print(polybit_config.abi)
+
+    print("Access ABI")
+    print(polybit_access.abi)
 
     """ ##
     #First Programmatic Deposit
