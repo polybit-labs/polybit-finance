@@ -174,7 +174,7 @@ contract PolybitRebalancer {
      */
     function createAdjustToSellList(
         address detfAddress,
-        uint256[] memory ownedAssetsPrices,
+        uint256 totalBalance,
         address[] memory adjustList,
         uint256[] memory adjustListWeights,
         uint256[] memory adjustListPrices
@@ -205,16 +205,14 @@ contract PolybitRebalancer {
         uint256 index = 0;
         if (adjustList.length > 0) {
             index = 0;
-            data.totalBalance = IPolybitDETF(detfAddress).getTotalBalanceInWeth(
-                ownedAssetsPrices
-            );
 
             for (uint256 i = 0; i < adjustList.length; i++) {
                 (, data.tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustList[i], adjustListPrices[i]);
                 data.tokenBalancePercentage =
                     (10**8 * data.tokenBalanceInWeth) /
-                    data.totalBalance;
+                    /* data.totalBalance; */
+                    totalBalance;
                 data.tokenTargetPercentage = adjustListWeights[i];
 
                 if (data.tokenBalancePercentage > data.tokenTargetPercentage) {
@@ -278,7 +276,7 @@ contract PolybitRebalancer {
      */
     function createAdjustToBuyList(
         address detfAddress,
-        uint256[] memory ownedAssetsPrices,
+        uint256 totalBalance,
         address[] memory adjustList,
         uint256[] memory adjustListWeights,
         uint256[] memory adjustListPrices
@@ -309,16 +307,14 @@ contract PolybitRebalancer {
         uint256 index = 0;
         if (adjustList.length > 0) {
             index = 0;
-            data.totalBalance = IPolybitDETF(detfAddress).getTotalBalanceInWeth(
-                ownedAssetsPrices
-            );
 
             for (uint256 i = 0; i < adjustList.length; i++) {
                 (, data.tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustList[i], adjustListPrices[i]);
                 data.tokenBalancePercentage =
                     (10**8 * data.tokenBalanceInWeth) /
-                    data.totalBalance;
+                    /*data.totalBalance;*/
+                    totalBalance;
                 data.tokenTargetPercentage = adjustListWeights[i];
 
                 if (data.tokenTargetPercentage > data.tokenBalancePercentage) {

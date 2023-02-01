@@ -187,6 +187,7 @@ def first_deposit_order_data(
         ]
     ]
     print("Order Data", orderData)
+    print("totalTargetPercentage",totalTargetPercentage)
     return orderData
 
 def rebalance(
@@ -214,13 +215,16 @@ def rebalance(
     print("Adjust List Weights", adjustListWeights)
     print("Adjust List Prices", adjustListPrices)
 
+    total_balance = detf.getTotalBalanceInWeth(owned_assets_prices)
+
     (
         adjustToSellList,
         adjustToSellWeights,
         adjustToSellPrices,
     ) = rebalancer.createAdjustToSellList(
         detf.address,
-        owned_assets_prices,
+        total_balance,
+        #owned_assets_prices,
         adjustList,
         adjustListWeights,
         adjustListPrices,
@@ -235,7 +239,8 @@ def rebalance(
         adjustToBuyPrices,
     ) = rebalancer.createAdjustToBuyList(
         detf.address,
-        owned_assets_prices,
+        total_balance,
+        #owned_assets_prices,
         adjustList,
         adjustListWeights,
         adjustListPrices,
@@ -355,6 +360,8 @@ def rebalance(
         if buyList[i] != "0x0000000000000000000000000000000000000000":
             targetPercentage = buyListWeights[i]
             totalTargetPercentage += targetPercentage
+
+    print("totalTargetPercentage",totalTargetPercentage)
 
     adjustToBuyOrder = [
         [
@@ -741,12 +748,12 @@ def main():
     for i in range(0, len(tx.events)):
         print(tx.events[i])
 
-    deposit_fees = detf.getDepositFees()
+    """deposit_fees = detf.getDepositFees()
 
 
-    print("Deposit fee", deposit_fees)
+    print("Deposit fee", deposit_fees) """
     print("account data", detf.getDETFAccountDetail())
-    print("deposit fees",detf.fees())
+    """ print("deposit fees",detf.fees()) """
     #print("%", deposit_fees/deposit_amount)
     """
     ##
@@ -763,7 +770,7 @@ def main():
     )
     print("Deposits", detf.getDeposits())
     print("Total Deposits", detf.getTotalDeposited())
-
+    """
     ##
     #Second rebalance
     ##
@@ -777,4 +784,4 @@ def main():
         TEST_TWO_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited())  """
+    print("Total Deposits", detf.getTotalDeposited())  
