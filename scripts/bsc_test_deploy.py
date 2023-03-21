@@ -3,11 +3,12 @@ from scripts import (
     deploy_config,
     deploy_rebalancer,
     deploy_router,
+    deploy_DETF,
     deploy_DETF_factory,
-    deploy_DETF_from_factory,
+    deploy_multicall,
 )
 from scripts.utils.polybit_utils import get_account
-from brownie import config, network
+from brownie import config, network, Contract
 from pycoingecko import CoinGeckoAPI
 from web3 import Web3
 import time
@@ -17,10 +18,10 @@ cg = CoinGeckoAPI(api_key=config["data_providers"]["coingecko"])
 BNBUSD = cg.get_coin_by_id("binancecoin")["market_data"]["current_price"]["usd"]
 
 TEST_ONE_ASSETS = [
-    "0x22fe6Bdb93075d64EC28C12d08DBD735dfa54e68",
-    "0x29D37d4c09e30368C018AE970BaF6b6BCb189A17",
-    "0xd00248Ec6A3eC6b44e0B52036EE8Ccd52eb584CC",
-    "0x85684F35C4e092176551F1244098630438480898"
+    "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+    "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
+    "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
+    "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
 ]
 
 TEST_ONE_WEIGHTS = [
@@ -31,9 +32,9 @@ TEST_ONE_WEIGHTS = [
 ]
 
 TEST_TWO_ASSETS = [
-    "0x629495808b0BdE749e4058832CCf2D1cdA4abCeF",
-    "0x7049d503d845A32C174C1d8EA2a8A7AaD05672D7",
-    "0x8DDa9b090421D031617Bde0766Dc1EC27AB4c33a",
+    "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+    "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
+    "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
 ]
 
 TEST_TWO_WEIGHTS = [
@@ -43,10 +44,10 @@ TEST_TWO_WEIGHTS = [
 ]
 
 TEST_THREE_ASSETS = [
-    "0x629495808b0BdE749e4058832CCf2D1cdA4abCeF",
-    "0x7049d503d845A32C174C1d8EA2a8A7AaD05672D7",
-    "0x8DDa9b090421D031617Bde0766Dc1EC27AB4c33a",
-    "0x337E22035DC87Acd5D182B62A0F056aBAFF1e63C"
+    "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+    "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1",
+    "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F",
+    "0x949D48EcA67b17269629c7194F4b727d4Ef9E5d6",
 ]
 
 TEST_THREE_WEIGHTS = [
@@ -105,6 +106,7 @@ def add_base_tokens_to_router(router, account):
     )
     tx.wait(1)
 
+
 def first_deposit_order_data(
     detf,
     rebalancer,
@@ -113,7 +115,8 @@ def first_deposit_order_data(
     target_assets,
     target_assets_weights,
     target_assets_prices,
-    weth_input_amount):
+    weth_input_amount,
+):
     (buyList, buyListWeights, buyListPrices) = rebalancer.createBuyList(
         owned_assets, target_assets, target_assets_weights, target_assets_prices
     )
@@ -174,16 +177,37 @@ def first_deposit_order_data(
         [
             [],
             [],
-            [[[],[],[],[],]],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
             [],
             [],
             [],
             [],
-            [[[],[],[],[],]],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
             [],
             [],
             [],
-            [[[],[],[],[],]],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
             buyList,
             buyListWeights,
             buyListPrices,
@@ -192,6 +216,7 @@ def first_deposit_order_data(
     ]
     print("Order Data", orderData)
     return orderData
+
 
 def rebalance(
     account,
@@ -204,7 +229,6 @@ def rebalance(
     target_assets_weights,
     target_assets_prices,
 ):
-
     (sellList, sellListPrices) = rebalancer.createSellList(
         owned_assets, owned_assets_prices, target_assets
     )
@@ -218,13 +242,16 @@ def rebalance(
     print("Adjust List Weights", adjustListWeights)
     print("Adjust List Prices", adjustListPrices)
 
+    total_balance = detf.getTotalBalanceInWeth(owned_assets_prices)
+
     (
         adjustToSellList,
         adjustToSellWeights,
         adjustToSellPrices,
     ) = rebalancer.createAdjustToSellList(
         detf.address,
-        owned_assets_prices,
+        total_balance,
+        # owned_assets_prices,
         adjustList,
         adjustListWeights,
         adjustListPrices,
@@ -239,7 +266,8 @@ def rebalance(
         adjustToBuyPrices,
     ) = rebalancer.createAdjustToBuyList(
         detf.address,
-        owned_assets_prices,
+        total_balance,
+        # owned_assets_prices,
         adjustList,
         adjustListWeights,
         adjustListPrices,
@@ -359,6 +387,8 @@ def rebalance(
         if buyList[i] != "0x0000000000000000000000000000000000000000":
             targetPercentage = buyListWeights[i]
             totalTargetPercentage += targetPercentage
+
+    print("totalTargetPercentage", totalTargetPercentage)
 
     adjustToBuyOrder = [
         [
@@ -585,6 +615,7 @@ def run_rebalance(account, detf, rebalancer, router, assets, weights):
                     round(token_balance_in_weth / total_balance, 4),
                 )
 
+
 def main():
     print(network.show_active())
     polybit_owner_account = get_account(type="polybit_owner")
@@ -594,9 +625,9 @@ def main():
     wallet_owner = get_account(type="wallet_owner")
     fee_address = get_account(type="polybit_fee_address")
     print("Polybit Owner", polybit_owner_account.address)
-    
+
     ##
-    #Deploy Polybit Access
+    # Deploy Polybit Access
     ##
     print("Deploying Access")
     polybit_access = deploy_access.main(polybit_owner_account)
@@ -605,12 +636,16 @@ def main():
     print("Rebalancer Owner", polybit_access.rebalancerOwner())
     print("Router Owner", polybit_access.routerOwner())
 
-    tx = polybit_access.transferRebalancerOwnership(rebalancer_account.address, {"from":polybit_owner_account})
+    tx = polybit_access.transferRebalancerOwnership(
+        rebalancer_account.address, {"from": polybit_owner_account}
+    )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
-    
-    tx = polybit_access.transferRouterOwnership(router_account.address, {"from":polybit_owner_account})
+
+    tx = polybit_access.transferRouterOwnership(
+        router_account.address, {"from": polybit_owner_account}
+    )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
@@ -620,40 +655,44 @@ def main():
     print("Router Owner", polybit_access.routerOwner())
 
     ##
-    #Deploy Config
+    # Deploy Config
     ##
     polybit_config = deploy_config.main(polybit_owner_account, polybit_access.address)
-    
-    tx = polybit_config.setDepositFee(50, {"from":polybit_owner_account})
+
+    tx = polybit_config.setDepositFee(50, {"from": polybit_owner_account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
     print("Deposit Fee", polybit_config.getDepositFee())
 
-    tx = polybit_config.setPerformanceFee(1000, {"from":polybit_owner_account})
+    tx = polybit_config.setPerformanceFee(1000, {"from": polybit_owner_account})
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
     print("Performance Fee", polybit_config.getPerformanceFee())
 
-    tx = polybit_config.setFeeAddress(fee_address.address, {"from":polybit_owner_account})
+    tx = polybit_config.setFeeAddress(
+        fee_address.address, {"from": polybit_owner_account}
+    )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
-    print("Fee Address",polybit_config.getFeeAddress())
-    
+    print("Fee Address", polybit_config.getFeeAddress())
+
     ##
-    #Deploy Rebalancer
+    # Deploy Rebalancer
     ##
     polybit_rebalancer = deploy_rebalancer.main(polybit_owner_account)
-    tx = polybit_config.setPolybitRebalancerAddress(polybit_rebalancer.address,{"from":polybit_owner_account})
+    tx = polybit_config.setPolybitRebalancerAddress(
+        polybit_rebalancer.address, {"from": polybit_owner_account}
+    )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
     print("Rebalancer Address", polybit_config.getPolybitRebalancerAddress())
 
     ##
-    #Deploy Router
+    # Deploy Router
     ##
     polybit_router = deploy_router.main(
         polybit_owner_account,
@@ -663,50 +702,73 @@ def main():
     )
     add_base_tokens_to_router(polybit_router, polybit_access.routerOwner())
 
-    tx = polybit_config.setPolybitRouterAddress(polybit_router.address,{"from":polybit_owner_account})
+    tx = polybit_config.setPolybitRouterAddress(
+        polybit_router.address, {"from": polybit_owner_account}
+    )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
     print("Router Address", polybit_config.getPolybitRouterAddress())
-     
+
+    ##
+    # Deploy DETF
+    ##
+    polybit_detf = deploy_DETF.main(polybit_owner_account)
+
+    ##
+    # Deploy Factory
+    ##
     polybit_detf_factory = deploy_DETF_factory.main(
-        polybit_owner_account, polybit_access.address, polybit_config.address
+        polybit_owner_account,
+        polybit_access.address,
+        polybit_config.address,
+        polybit_detf.address,
     )
 
-    tx = polybit_config.setPolybitDETFFactoryAddress(polybit_detf_factory.address,{"from":polybit_owner_account})
+    tx = polybit_config.setPolybitDETFFactoryAddress(
+        polybit_detf_factory.address, {"from": polybit_owner_account}
+    )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
     print("DETF Factory Address", polybit_config.getPolybitDETFFactoryAddress())
 
     ##
-    #Establish first DETF
+    # Deploy Multicall
     ##
-    product_id = 5610001000
+    polybit_multicall = deploy_multicall.main(
+        polybit_owner_account,
+        polybit_config.address,
+    )
+
+    """ ##
+    # Establish first DETF
+    ##
     product_category = "BSC Index Top 10"
     product_dimension = "Market Cap"
 
-    detf = deploy_DETF_from_factory.main(
-        polybit_owner_account,
-        polybit_detf_factory.address,
+    tx = polybit_detf_factory.createDETF(
         wallet_owner,
-        product_id,
         product_category,
         product_dimension,
+        {"from": polybit_owner_account},
     )
-
+    for i in range(0, len(tx.events)):
+        print(tx.events[i]) """
 
     ##
-    #Print Contract Info for Export
+    # Print Contract Info for Export
     ##
     print("router", polybit_router.address)
     print("rebalancer", polybit_rebalancer.address)
+    print("detf", polybit_detf.address)
     print("detf_factory", polybit_detf_factory.address)
-    print("config",polybit_config.address)
-    print("access",polybit_access.address)
+    print("config", polybit_config.address)
+    print("access", polybit_access.address)
+    print("multicall", polybit_multicall.address)
 
     print("DETF ABI")
-    print(detf.abi)
+    print(polybit_detf.abi)
 
     print("DETF Factory ABI")
     print(polybit_detf_factory.abi)
@@ -723,8 +785,17 @@ def main():
     print("Access ABI")
     print(polybit_access.abi)
 
-    """ ##
-    #First Programmatic Deposit
+    print("Multicall ABI")
+    print(polybit_multicall.abi)
+
+    """ detf = Contract.from_abi(
+        "", polybit_detf_factory.getListOfDETFs()[0], polybit_detf.abi
+    )
+
+    print("Status", detf.getStatus())
+
+    ##
+    # First Programmatic Deposit
     ##
     lock_duration = 30 * 86400
     deposit_amount = Web3.toWei(1, "ether")
@@ -733,26 +804,29 @@ def main():
         target_assets,
         target_assets_weights,
         target_assets_prices,
-    ) = get_target_assets(detf, TEST_ONE_ASSETS,TEST_ONE_WEIGHTS)
+    ) = get_target_assets(detf, TEST_ONE_ASSETS, TEST_ONE_WEIGHTS)
     order_data = first_deposit_order_data(
-    detf,
-    polybit_rebalancer,
-    polybit_router,
-    owned_assets,
-    target_assets,
-    target_assets_weights,
-    target_assets_prices,
-    deposit_amount) """
+        detf,
+        polybit_rebalancer,
+        polybit_router,
+        owned_assets,
+        target_assets,
+        target_assets_weights,
+        target_assets_prices,
+        deposit_amount,
+    )
 
-    """ tx = detf.deposit(
-        time.time() + lock_duration, order_data, {"from": wallet_owner, "value": deposit_amount}
+    tx = detf.deposit(
+        time.time() + lock_duration,
+        order_data,
+        {"from": wallet_owner, "value": deposit_amount},
     )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
 
     ##
-    #First rebalance
+    # First rebalance
     ##
     print("REBALANCE #1")
     run_rebalance(
@@ -767,7 +841,7 @@ def main():
     print("Total Deposits", detf.getTotalDeposited())
 
     ##
-    #Second rebalance
+    # Second rebalance
     ##
     print("REBALANCE #2")
     run_rebalance(
@@ -779,4 +853,45 @@ def main():
         TEST_TWO_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited())  """
+    print("Total Deposits", detf.getTotalDeposited())
+
+    ##
+    # Report account data with multicall
+    ##
+    print(
+        "Multicall from single DETF",
+        polybit_multicall.getDETFAccountDetail(detf.address),
+    )
+
+    detf_list = ["0x06f38F6427447aD8309c5C4fcd57Ac551f3DA9FC", detf.address]
+    print(
+        "Multicall from list of DETFs",
+        polybit_multicall.getDETFAccountDetailAll(detf_list),
+    )
+
+    print(
+        "Multicall from Wallet Owner",
+        polybit_multicall.getDETFAccountDetailFromWalletOwner(wallet_owner.address),
+    )
+
+    print("Status", detf.getStatus())
+
+    owned_assets = detf.getOwnedAssets()
+    owned_assets_prices = []
+    for i in range(0, len(owned_assets)):
+        price = int(
+            cg.get_coin_info_from_contract_address_by_id(
+                id="binance-smart-chain",
+                contract_address=owned_assets[i],
+            )["market_data"]["current_price"]["bnb"]
+            * 10**18
+        )
+        owned_assets_prices.append(price)
+    print("Owned assets", owned_assets)
+    print("Owned assets prices", owned_assets_prices)
+    print(
+        "Get all token balances in weth",
+        polybit_multicall.getAllTokenBalancesInWeth(
+            detf.address, owned_assets, owned_assets_prices
+        ),
+    ) """

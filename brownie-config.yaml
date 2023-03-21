@@ -12,31 +12,31 @@ networks:
     ganache-local:
         verify: False
     bsc-test:
-        weth_address: "0x02aFD405C64Ac004c08e7f50dEA82Db3403229E2"
+        weth_address: "0xE188A6B87fc5964c0f340a7745a1d9CB7baA0B05"
         busd_address: "0x1F3365d318Dc1C81777B9977F8b466fdd1614FdB"
         usdt_address: "0xfC00cA596A25B1CfF691EA612D007AfAd5C4bC71"
         usdc_address: "0x25Cd00ece2B3Cd1C28b1e3cbe135Ff51F7c40E9d"
-        pancakeswap_factory_address: "0x13E14c10a67d7D4A9EC9E0761bdC878ef01AeC15"
+        pancakeswap_factory_address: "0x1c12836972879e62BD2350987A38577C5b1757c2"
         verify: False
     bsc-test-blast:
-        weth_address: "0x02aFD405C64Ac004c08e7f50dEA82Db3403229E2"
+        weth_address: "0xE188A6B87fc5964c0f340a7745a1d9CB7baA0B05"
         busd_address: "0x1F3365d318Dc1C81777B9977F8b466fdd1614FdB"
         usdt_address: "0xfC00cA596A25B1CfF691EA612D007AfAd5C4bC71"
         usdc_address: "0x25Cd00ece2B3Cd1C28b1e3cbe135Ff51F7c40E9d"
-        pancakeswap_factory_address: "0x13E14c10a67d7D4A9EC9E0761bdC878ef01AeC15"
+        pancakeswap_factory_address: "0x1c12836972879e62BD2350987A38577C5b1757c2"
         verify: False
     bsc-main:
         weth_address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
-        busd_address: "0xe9e7cea3dedca5984780bafc599bd69add087d56"
-        usdt_address: "0x55d398326f99059ff775485246999027b3197955"
-        usdc_address: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+        busd_address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
+        usdt_address: "0x55d398326f99059fF775485246999027B3197955"
+        usdc_address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
         pancakeswap_factory_address: "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
         verify: False    
     bsc-main-fork:
         weth_address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
-        busd_address: "0xe9e7cea3dedca5984780bafc599bd69add087d56"
-        usdt_address: "0x55d398326f99059ff775485246999027b3197955"
-        usdc_address: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+        busd_address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
+        usdt_address: "0x55d398326f99059fF775485246999027B3197955"
+        usdc_address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
         pancakeswap_factory_address: "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
         verify: False
     polybit-bsc-fork:

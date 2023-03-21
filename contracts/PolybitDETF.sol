@@ -17,40 +17,40 @@ contract PolybitDETF {
     IPolybitConfig polybitConfig;
     address public polybitDETFFactoryAddress;
     IPolybitDETFFactory polybitDETFFactory;
-    address public immutable walletOwner;
-    uint256 internal productId;
+    address public walletOwner;
     string internal productCategory;
     string internal productDimension;
     address internal wethAddress;
     IWETH wethToken;
     address[] internal ownedAssets;
     uint256[][] internal deposits;
-    uint256[][] public fees;
+    uint256[][] internal feesPaid;
     uint256 internal lastRebalance = 0;
     uint256 internal creationTimestamp = 0;
     uint256 internal closeTimestamp = 0;
     uint256 internal timeLock = 0;
-    uint256 internal status = 1; //Set status to active (0 = inactive, 1 = active)
+    uint256 internal status = 0; //Set status to active (0 = inactive, 1 = active)
     uint256 internal finalBalanceInWeth = 0;
-    address[] internal finalTokenList;
-    uint256[] internal finalTokenBalances;
-    uint256[] internal finalTokenBalancesInWeth;
+    address[] internal finalAssets;
+    uint256[] internal finalAssetsPrices;
+    uint256[] internal finalAssetsBalances;
+    uint256[] internal finalAssetsBalancesInWeth;
+    bool initialised = false;
 
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
 
-    constructor(
+    function init(
         address _polybitAccessAddress,
         address _polybitConfigAddress,
         address _walletOwnerAddress,
         address _polybitDETFFactoryAddress,
-        uint256 _productId,
         string memory _productCategory,
         string memory _productDimension
-    ) {
+    ) public {
+        require(initialised != true, "Already initialised");
         require(address(_walletOwnerAddress) != address(0));
         require(address(_polybitDETFFactoryAddress) != address(0));
-        require(_productId > 0);
         polybitAccessAddress = _polybitAccessAddress;
         polybitAccess = IPolybitAccess(polybitAccessAddress);
         polybitConfigAddress = _polybitConfigAddress;
@@ -58,12 +58,13 @@ contract PolybitDETF {
         polybitDETFFactoryAddress = _polybitDETFFactoryAddress;
         polybitDETFFactory = IPolybitDETFFactory(polybitDETFFactoryAddress);
         walletOwner = _walletOwnerAddress;
-        productId = _productId;
         productCategory = _productCategory;
         productDimension = _productDimension;
         wethAddress = polybitConfig.getWethAddress();
         wethToken = IWETH(wethAddress);
         creationTimestamp = block.timestamp;
+        status = 1;
+        initialised = true;
     }
 
     modifier onlyAuthorised() {
@@ -93,8 +94,8 @@ contract PolybitDETF {
 
     receive() external payable {}
 
-    function getProductId() external view returns (uint256) {
-        return productId;
+    function getStatus() external view returns (uint256) {
+        return status;
     }
 
     function getProductCategory() external view returns (string memory) {
@@ -103,10 +104,6 @@ contract PolybitDETF {
 
     function getProductDimension() external view returns (string memory) {
         return productDimension;
-    }
-
-    function getDETFStatus() external view returns (uint256) {
-        return status;
     }
 
     function setTimeLock(uint256 unixTimeLock) public onlyWalletOwner {
@@ -141,12 +138,11 @@ contract PolybitDETF {
         uint256 status;
         uint256 creationTimestamp;
         uint256 closeTimestamp;
-        uint256 productId;
         string productCategory;
         string productDimension;
         uint256[][] deposits;
         uint256 totalDeposited;
-        uint256[][] fees;
+        uint256[][] feesPaid;
         uint256 timeLock;
         uint256 timeLockRemaining;
         uint256 finalBalanceInWeth;
@@ -162,12 +158,11 @@ contract PolybitDETF {
         data.status = status;
         data.creationTimestamp = creationTimestamp;
         data.closeTimestamp = closeTimestamp;
-        data.productId = productId;
         data.productCategory = productCategory;
         data.productDimension = productDimension;
         data.deposits = deposits;
         data.totalDeposited = getTotalDeposited();
-        data.fees = fees;
+        data.feesPaid = feesPaid;
         data.timeLock = timeLock;
         data.timeLockRemaining = getTimeLockRemaining();
         data.finalBalanceInWeth = finalBalanceInWeth;
@@ -176,11 +171,10 @@ contract PolybitDETF {
 
     event EthBalance(string, uint256);
 
-    function deposit(uint256 lockTimestamp, SwapOrders[] memory orderData)
-        public
-        payable
-        onlyWalletOwner
-    {
+    function deposit(
+        uint256 lockTimestamp,
+        SwapOrders[] memory orderData
+    ) public payable onlyWalletOwner {
         if (lockTimestamp > 0) {
             setTimeLock(lockTimestamp);
         }
@@ -224,10 +218,16 @@ contract PolybitDETF {
         returns (
             address[] memory,
             uint256[] memory,
+            uint256[] memory,
             uint256[] memory
         )
     {
-        return (finalTokenList, finalTokenBalances, finalTokenBalancesInWeth);
+        return (
+            finalAssets,
+            finalAssetsPrices,
+            finalAssetsBalances,
+            finalAssetsBalancesInWeth
+        );
     }
 
     event ProcessFee(string, uint256);
@@ -239,10 +239,14 @@ contract PolybitDETF {
     ) internal {
         uint256 feeAmount = (inputAmount * fee) / 10000;
         uint256 cachedFeeAmount = feeAmount;
-        fees.push([block.timestamp, feeAmount]);
+        feesPaid.push([block.timestamp, feeAmount]);
         feeAmount = 0;
         emit ProcessFee("Fee paid", feeAmount);
         IERC20(wethAddress).safeTransfer(feeAddress, cachedFeeAmount);
+    }
+
+    function getFeesPaid() external view returns (uint256[][] memory) {
+        return feesPaid;
     }
 
     function getOwnedAssets() external view returns (address[] memory) {
@@ -257,24 +261,21 @@ contract PolybitDETF {
         return IERC20(wethAddress).balanceOf(address(this));
     }
 
-    function getTokenBalance(address tokenAddress, uint256 tokenPrice)
-        public
-        view
-        returns (uint256, uint256)
-    {
+    function getTokenBalance(
+        address tokenAddress,
+        uint256 tokenPrice
+    ) public view returns (uint256, uint256) {
         IERC20 token = IERC20(tokenAddress);
         uint256 tokenBalance = token.balanceOf(address(this));
         uint256 tokenDecimals = token.decimals();
         uint256 tokenBalanceInWeth = (tokenBalance * tokenPrice) /
-            10**tokenDecimals;
+            10 ** tokenDecimals;
         return (tokenBalance, tokenBalanceInWeth);
     }
 
-    function getTotalBalanceInWeth(uint256[] memory ownedAssetsPrices)
-        public
-        view
-        returns (uint256)
-    {
+    function getTotalBalanceInWeth(
+        uint256[] memory ownedAssetsPrices
+    ) public view returns (uint256) {
         uint256 tokenBalances = 0;
         if (ownedAssets.length > 0) {
             for (uint256 x = 0; x < ownedAssets.length; x++) {
@@ -514,10 +515,9 @@ contract PolybitDETF {
         );
     }
 
-    function rebalanceDETF(SwapOrders[] memory orderData)
-        external
-        onlyAuthorised
-    {
+    function rebalanceDETF(
+        SwapOrders[] memory orderData
+    ) external onlyAuthorised {
         rebalance(orderData);
     }
 
@@ -683,18 +683,18 @@ contract PolybitDETF {
 
     event SellToClose(string msg, uint256 ref);
 
-    function sellToClose(SwapOrders[] memory orderData)
-        external
-        onlyAuthorised
-    {
+    function sellToClose(
+        SwapOrders[] memory orderData
+    ) external onlyAuthorised {
         require(
             block.timestamp >= timeLock,
             "The wallet is locked. Check the time left."
         );
         status = 0; // Set status to inactive
-        finalTokenList = orderData[0].sellList;
-        finalTokenBalances = orderData[0].sellOrders[0].amountsIn;
-        finalTokenBalancesInWeth = orderData[0].sellOrders[0].amountsOut;
+        finalAssets = orderData[0].sellList;
+        finalAssetsPrices = orderData[0].sellListPrices;
+        finalAssetsBalances = orderData[0].sellOrders[0].amountsIn;
+        finalAssetsBalancesInWeth = orderData[0].sellOrders[0].amountsOut;
         delete ownedAssets; // Clear owned assets list
         closeTimestamp = block.timestamp;
 

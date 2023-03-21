@@ -15,4 +15,8 @@ interface IPolybitDETFFactory {
     function getPerformanceFee() external view returns (uint256);
 
     function getFeeAddress() external view returns (address);
+
+    function getDETFAccounts(
+        address _walletOwner
+    ) external view returns (address[] memory);
 }

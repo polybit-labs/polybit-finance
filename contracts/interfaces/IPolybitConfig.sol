@@ -6,6 +6,8 @@ interface IPolybitConfig {
 
     function getPolybitRouterAddress() external view returns (address);
 
+    function getPolybitDETFFactoryAddress() external view returns (address);
+
     function getDepositFee() external view returns (uint256);
 
     function getPerformanceFee() external view returns (uint256);
