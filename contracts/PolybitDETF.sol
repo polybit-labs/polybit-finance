@@ -17,11 +17,14 @@ contract PolybitDETF {
     IPolybitConfig polybitConfig;
     address public polybitDETFFactoryAddress;
     IPolybitDETFFactory polybitDETFFactory;
-    address public walletOwner;
-    string internal productCategory;
-    string internal productDimension;
     address internal wethAddress;
     IWETH wethToken;
+    address public walletOwner;
+    uint256 internal productId;
+    string internal productCategory;
+    string internal productDimension;
+    uint256 internal entryFee;
+    uint256 internal exitFee;
     address[] internal ownedAssets;
     uint256[][] internal deposits;
     uint256[][] internal feesPaid;
@@ -35,7 +38,7 @@ contract PolybitDETF {
     uint256[] internal finalAssetsPrices;
     uint256[] internal finalAssetsBalances;
     uint256[] internal finalAssetsBalancesInWeth;
-    bool initialised = false;
+    bool internal initialised = false;
 
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
@@ -45,26 +48,34 @@ contract PolybitDETF {
         address _polybitConfigAddress,
         address _walletOwnerAddress,
         address _polybitDETFFactoryAddress,
+        uint256 _productId,
         string memory _productCategory,
-        string memory _productDimension
-    ) public {
+        string memory _productDimension,
+        uint256 _entryFee,
+        uint256 _exitFee,
+        SwapOrders[] memory _orderData
+    ) public payable {
         require(initialised != true, "Already initialised");
         require(address(_walletOwnerAddress) != address(0));
         require(address(_polybitDETFFactoryAddress) != address(0));
+        initialised = true;
         polybitAccessAddress = _polybitAccessAddress;
         polybitAccess = IPolybitAccess(polybitAccessAddress);
         polybitConfigAddress = _polybitConfigAddress;
         polybitConfig = IPolybitConfig(polybitConfigAddress);
         polybitDETFFactoryAddress = _polybitDETFFactoryAddress;
         polybitDETFFactory = IPolybitDETFFactory(polybitDETFFactoryAddress);
-        walletOwner = _walletOwnerAddress;
-        productCategory = _productCategory;
-        productDimension = _productDimension;
         wethAddress = polybitConfig.getWethAddress();
         wethToken = IWETH(wethAddress);
+        walletOwner = _walletOwnerAddress;
+        productId = _productId;
+        productCategory = _productCategory;
+        productDimension = _productDimension;
+        entryFee = _entryFee;
+        exitFee = _exitFee;
         creationTimestamp = block.timestamp;
         status = 1;
-        initialised = true;
+        initialDeposit(0, _orderData);
     }
 
     modifier onlyAuthorised() {
@@ -94,18 +105,6 @@ contract PolybitDETF {
 
     receive() external payable {}
 
-    function getStatus() external view returns (uint256) {
-        return status;
-    }
-
-    function getProductCategory() external view returns (string memory) {
-        return productCategory;
-    }
-
-    function getProductDimension() external view returns (string memory) {
-        return productDimension;
-    }
-
     function setTimeLock(uint256 unixTimeLock) public onlyWalletOwner {
         require(
             unixTimeLock > block.timestamp,
@@ -114,27 +113,7 @@ contract PolybitDETF {
         timeLock = unixTimeLock;
     }
 
-    function getTimeLock() external view returns (uint256) {
-        return timeLock;
-    }
-
-    function getTimeLockRemaining() public view returns (uint256) {
-        if (timeLock > block.timestamp) {
-            return timeLock - block.timestamp;
-        } else {
-            return uint256(0);
-        }
-    }
-
-    function getCreationTimestamp() external view returns (uint256) {
-        return creationTimestamp;
-    }
-
-    function getCloseTimestamp() external view returns (uint256) {
-        return closeTimestamp;
-    }
-
-    struct DETFAccountDetail {
+    /* struct DETFAccountDetail {
         uint256 status;
         uint256 creationTimestamp;
         uint256 closeTimestamp;
@@ -167,9 +146,19 @@ contract PolybitDETF {
         data.timeLockRemaining = getTimeLockRemaining();
         data.finalBalanceInWeth = finalBalanceInWeth;
         return data;
-    }
+    } */
 
     event EthBalance(string, uint256);
+
+    function initialDeposit(
+        uint256 lockTimestamp,
+        SwapOrders[] memory orderData
+    ) internal {
+        if (lockTimestamp > 0) {
+            setTimeLock(lockTimestamp);
+        }
+        rebalance(orderData);
+    }
 
     function deposit(
         uint256 lockTimestamp,
@@ -178,7 +167,6 @@ contract PolybitDETF {
         if (lockTimestamp > 0) {
             setTimeLock(lockTimestamp);
         }
-        //checkForDeposits();
         rebalance(orderData);
     }
 
@@ -190,44 +178,10 @@ contract PolybitDETF {
             wrapETH();
             processFee(
                 getWethBalance(),
-                polybitConfig.getDepositFee(),
+                entryFee,
                 polybitConfig.getFeeAddress()
             );
         }
-    }
-
-    function getDeposits() external view returns (uint256[][] memory) {
-        return deposits;
-    }
-
-    function getTotalDeposited() public view returns (uint256) {
-        uint256 totalDeposited = 0;
-        for (uint256 i = 0; i < deposits.length; i++) {
-            totalDeposited = totalDeposited + deposits[i][1];
-        }
-        return totalDeposited;
-    }
-
-    function getFinalBalance() external view returns (uint256) {
-        return finalBalanceInWeth;
-    }
-
-    function getFinalAssets()
-        external
-        view
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory,
-            uint256[] memory
-        )
-    {
-        return (
-            finalAssets,
-            finalAssetsPrices,
-            finalAssetsBalances,
-            finalAssetsBalancesInWeth
-        );
     }
 
     event ProcessFee(string, uint256);
@@ -243,57 +197,6 @@ contract PolybitDETF {
         feeAmount = 0;
         emit ProcessFee("Fee paid", feeAmount);
         IERC20(wethAddress).safeTransfer(feeAddress, cachedFeeAmount);
-    }
-
-    function getFeesPaid() external view returns (uint256[][] memory) {
-        return feesPaid;
-    }
-
-    function getOwnedAssets() external view returns (address[] memory) {
-        return ownedAssets;
-    }
-
-    function getEthBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
-
-    function getWethBalance() public view returns (uint256) {
-        return IERC20(wethAddress).balanceOf(address(this));
-    }
-
-    function getTokenBalance(
-        address tokenAddress,
-        uint256 tokenPrice
-    ) public view returns (uint256, uint256) {
-        IERC20 token = IERC20(tokenAddress);
-        uint256 tokenBalance = token.balanceOf(address(this));
-        uint256 tokenDecimals = token.decimals();
-        uint256 tokenBalanceInWeth = (tokenBalance * tokenPrice) /
-            10 ** tokenDecimals;
-        return (tokenBalance, tokenBalanceInWeth);
-    }
-
-    function getTotalBalanceInWeth(
-        uint256[] memory ownedAssetsPrices
-    ) public view returns (uint256) {
-        uint256 tokenBalances = 0;
-        if (ownedAssets.length > 0) {
-            for (uint256 x = 0; x < ownedAssets.length; x++) {
-                (, uint256 tokenBalanceInWeth) = getTokenBalance(
-                    ownedAssets[x],
-                    ownedAssetsPrices[x]
-                );
-                tokenBalances = tokenBalances + tokenBalanceInWeth;
-            }
-        }
-        uint256 totalBalance = tokenBalances +
-            getEthBalance() +
-            getWethBalance();
-        return totalBalance;
-    }
-
-    function getLastRebalance() external view returns (uint256) {
-        return lastRebalance;
     }
 
     function updateOwnedAssetsForRebalance(
@@ -330,7 +233,7 @@ contract PolybitDETF {
     event LiquidityTest(string msg);
 
     struct SwapOrder {
-        address[] swapFactory;
+        address[] factory;
         address[][] path;
         uint256[] amountsIn;
         uint256[] amountsOut;
@@ -388,11 +291,12 @@ contract PolybitDETF {
                 if (orderData[0].sellList[i] != address(0)) {
                     if (orderData[0].sellOrders[0].path[i].length > 0) {
                         swap(
-                            orderData[0].sellOrders[0].amountsIn[i],
-                            orderData[0].sellOrders[0].amountsOut[i],
-                            orderData[0].sellOrders[0].path[i],
                             polybitRouterAddress,
-                            polybitRouter
+                            polybitRouter,
+                            orderData[0].sellOrders[0].factory[i],
+                            orderData[0].sellOrders[0].path[i],
+                            orderData[0].sellOrders[0].amountsIn[i],
+                            orderData[0].sellOrders[0].amountsOut[i]
                         );
                     } else {
                         emit LiquidityTest(
@@ -407,16 +311,17 @@ contract PolybitDETF {
         if (orderData[0].adjustToSellList.length > 0) {
             for (
                 uint256 i = 0;
-                i < orderData[0].adjustToSellOrders[0].swapFactory.length;
+                i < orderData[0].adjustToSellOrders[0].factory.length;
                 i++
             ) {
                 if (orderData[0].adjustToSellOrders[0].path[i].length > 0) {
                     swap(
-                        orderData[0].adjustToSellOrders[0].amountsIn[i],
-                        orderData[0].adjustToSellOrders[0].amountsOut[i],
-                        orderData[0].adjustToSellOrders[0].path[i],
                         polybitRouterAddress,
-                        polybitRouter
+                        polybitRouter,
+                        orderData[0].adjustToSellOrders[0].factory[i],
+                        orderData[0].adjustToSellOrders[0].path[i],
+                        orderData[0].adjustToSellOrders[0].amountsIn[i],
+                        orderData[0].adjustToSellOrders[0].amountsOut[i]
                     );
                 } else {
                     emit LiquidityTest(
@@ -462,11 +367,12 @@ contract PolybitDETF {
                 if (orderData[0].adjustToBuyList[i] != address(0)) {
                     if (orderData[0].adjustToBuyOrders[0].path[i].length > 0) {
                         swap(
-                            ordersInfo.adjustToBuyListAmountsIn[i],
-                            ordersInfo.adjustToBuyListAmountsOut[i],
-                            orderData[0].adjustToBuyOrders[0].path[i],
                             polybitRouterAddress,
-                            polybitRouter
+                            polybitRouter,
+                            orderData[0].adjustToBuyOrders[0].factory[i],
+                            orderData[0].adjustToBuyOrders[0].path[i],
+                            ordersInfo.adjustToBuyListAmountsIn[i],
+                            ordersInfo.adjustToBuyListAmountsOut[i]
                         );
                     } else {
                         emit LiquidityTest(
@@ -494,11 +400,12 @@ contract PolybitDETF {
                 if (orderData[0].buyList[i] != address(0)) {
                     if (orderData[0].buyOrders[0].path[i].length > 0) {
                         swap(
-                            ordersInfo.buyListAmountsIn[i],
-                            ordersInfo.buyListAmountsOut[i],
-                            orderData[0].buyOrders[0].path[i],
                             polybitRouterAddress,
-                            polybitRouter
+                            polybitRouter,
+                            orderData[0].buyOrders[0].factory[i],
+                            orderData[0].buyOrders[0].path[i],
+                            ordersInfo.buyListAmountsIn[i],
+                            ordersInfo.buyListAmountsOut[i]
                         );
                     } else {
                         emit LiquidityTest(
@@ -521,36 +428,36 @@ contract PolybitDETF {
         rebalance(orderData);
     }
 
-    event SwapSuccess(string msg, uint256, uint256, address);
-    event SwapFailure(string msg, uint256, uint256, address[]);
-    event Amounts(string msg, uint256[] ref);
-
     function swap(
-        uint256 amountIn,
-        uint256 amountOut,
-        address[] memory path,
         address polybitRouterAddress,
-        IPolybitRouter polybitRouter
+        IPolybitRouter polybitRouter,
+        address factory,
+        address[] memory path,
+        uint256 amountIn,
+        uint256 amountOut
     ) internal {
-        uint256 amountOutMin = ((10000 - polybitRouter.getSlippage()) *
-            amountOut) / 10000; // e.g. 0.05% calculated as 50/10000
+        uint256 slippage = 500;
+        uint256 amountOutMin = ((10000 - slippage) * amountOut) / 10000; // e.g. 0.05% calculated as 50/10000
         uint256 deadline = block.timestamp + 30;
         address recipient = address(this);
         IERC20 token = IERC20(path[0]);
+
         require(
             token.approve(address(polybitRouterAddress), amountIn),
             "PolybitDETF: TOKEN_APPROVE_FAILED"
         );
 
         uint256[] memory routerAmounts = polybitRouter.swapTokens(
+            factory,
+            path,
             amountIn,
             amountOutMin,
-            path,
             recipient,
             deadline
         );
+
         require(
-            routerAmounts[1] >= amountOutMin,
+            routerAmounts[routerAmounts.length - 1] >= amountOutMin,
             "PolybitDETF: SWAP_FAILED_MIN_OUT"
         );
 
@@ -584,108 +491,31 @@ contract PolybitDETF {
         );
     }
 
-    event TransferToClose(string msg, uint256 ref);
+    event EmergencyWithdrawal(address asset, uint256 amount, uint256 feeAmount);
 
-    /* function transferToClose() external {
-        require(
-            block.timestamp >= timeLock,
-            "The wallet is locked. Check the time left."
-        );
-        detfStatus = 0;
-
-        address[] memory ownedAssetList = ownedAssets; // Create temporary list to avoid re-entrancy
-        delete ownedAssets;
-
-        uint256 totalBalanceInWeth = getTotalBalanceInWeth();
-        valueAtClose = totalBalanceInWeth;
-
-        if (totalBalanceInWeth > totalDeposited) {
-            uint256 profit = totalBalanceInWeth - totalDeposited;
-            uint256 performanceFee = polybitDETFFactory.getPerformanceFee();
-            uint256 performanceFeeAmount = (performanceFee * profit) / 10000;
-            uint256 performanceFeePercentage = (performanceFeeAmount /
-                totalBalanceInWeth) * 10000;
-            for (uint256 i = 0; i < ownedAssetList.length; i++) {
-                uint256 tokenBalance = 0;
-                (tokenBalance, ) = getTokenBalance(ownedAssetList[i]);
-                uint256 transferAmount = ((10000 - performanceFeePercentage) *
-                    tokenBalance) / 10000;
-                emit TransferToClose(
-                    "Transferred to DETF owner:",
-                    transferAmount
-                );
-                IERC20(ownedAssetList[i]).safeTransfer(owner(), transferAmount);
-
-                uint256 transferFeeAmount = tokenBalance - transferAmount;
-                emit TransferToClose(
-                    "Transferred to Polybit fee address:",
-                    transferFeeAmount
-                );
-                IERC20(ownedAssetList[i]).safeTransfer(
-                    polybitDETFFactory.getFeeAddress(),
-                    transferFeeAmount
-                );
-            }
-
-            uint256 wethBalance = getWethBalance();
-            if (wethBalance > 0) {
-                uint256 transferAmount = ((10000 - performanceFeePercentage) *
-                    wethBalance) / 10000;
-                emit TransferToClose(
-                    "WETH transferred to DETF owner:",
-                    transferAmount
-                );
-                IERC20(wethAddress).safeTransfer(owner(), transferAmount);
-
-                uint256 transferFeeAmount = wethBalance - transferAmount;
-                emit TransferToClose(
-                    "WETH transferred to Polybit fee address:",
-                    transferFeeAmount
-                );
-                IERC20(wethAddress).safeTransfer(
-                    polybitDETFFactory.getFeeAddress(),
-                    transferFeeAmount
-                );
-            }
-        } else {
-            for (uint256 i = 0; i < ownedAssetList.length; i++) {
-                uint256 tokenBalance = 0;
-                (tokenBalance, ) = getTokenBalance(ownedAssetList[i]);
-                IERC20(ownedAssetList[i]).safeTransfer(owner(), tokenBalance);
-                emit TransferToClose(
-                    "Transferred to DETF owner without fee:",
-                    tokenBalance
-                );
-
-                uint256 wethBalance = getWethBalance();
-                if (wethBalance > 0) {
-                    IERC20(wethAddress).safeTransfer(owner(), wethBalance);
-                }
-                emit TransferToClose(
-                    "WETH transferred to DETF owner without fee:",
-                    tokenBalance
-                );
-            }
-        }
-
-        uint256 ethBalance = getEthBalance();
-        emit TransferToClose("ETH balance:", ethBalance);
-
-        if (ethBalance > 0) {
-            (bool sent, ) = owner().call{value: ethBalance}("");
-            require(sent, "Failed to send ETH");
-            emit TransferToClose(
-                "ETH amount returned to wallet owner:",
-                ethBalance
+    function emergencyWithdrawal() external onlyAuthorised {
+        for (uint256 i = 0; i < ownedAssets.length; i++) {
+            uint256 tokenBalance = IERC20(ownedAssets[i]).balanceOf(
+                address(this)
             );
+            uint256 feeAmount = (tokenBalance * exitFee) / 10000;
+            uint256 withdrawalAmount = tokenBalance - feeAmount;
+            emit EmergencyWithdrawal(
+                ownedAssets[i],
+                withdrawalAmount,
+                feeAmount
+            );
+            IERC20(ownedAssets[i]).safeTransfer(
+                polybitConfig.getFeeAddress(),
+                feeAmount
+            );
+            IERC20(ownedAssets[i]).safeTransfer(walletOwner, withdrawalAmount);
         }
-    } */
+    }
 
-    event SellToClose(string msg, uint256 ref);
+    event Withdraw(string msg, uint256 ref);
 
-    function sellToClose(
-        SwapOrders[] memory orderData
-    ) external onlyAuthorised {
+    function withdraw(SwapOrders[] memory orderData) external onlyAuthorised {
         require(
             block.timestamp >= timeLock,
             "The wallet is locked. Check the time left."
@@ -700,18 +530,10 @@ contract PolybitDETF {
 
         rebalance(orderData);
 
-        uint256 totalDeposited = getTotalDeposited();
         uint256 wethBalance = getWethBalance();
         finalBalanceInWeth = wethBalance;
 
-        if (wethBalance > totalDeposited) {
-            uint256 profit = wethBalance - totalDeposited;
-            processFee(
-                profit,
-                polybitConfig.getPerformanceFee(),
-                polybitConfig.getFeeAddress()
-            );
-        }
+        processFee(wethBalance, exitFee, polybitConfig.getFeeAddress());
 
         if (wethBalance > 0) {
             unwrapETH();
@@ -721,10 +543,127 @@ contract PolybitDETF {
         if (ethBalance > 0) {
             (bool sent, ) = walletOwner.call{value: ethBalance}("");
             require(sent, "Failed to send ETH");
-            emit SellToClose(
-                "ETH amount returned to wallet owner:",
-                ethBalance
-            );
+            emit Withdraw("ETH amount returned to wallet owner:", ethBalance);
         }
+    }
+
+    /* 
+    Interface / Getter functions 
+    */
+    function getStatus() external view returns (uint256) {
+        return status;
+    }
+
+    function getProductCategory() external view returns (string memory) {
+        return productCategory;
+    }
+
+    function getProductDimension() external view returns (string memory) {
+        return productDimension;
+    }
+
+    function getTimeLock() external view returns (uint256) {
+        return timeLock;
+    }
+
+    function getTimeLockRemaining() public view returns (uint256) {
+        if (timeLock > block.timestamp) {
+            return timeLock - block.timestamp;
+        } else {
+            return uint256(0);
+        }
+    }
+
+    function getCreationTimestamp() external view returns (uint256) {
+        return creationTimestamp;
+    }
+
+    function getCloseTimestamp() external view returns (uint256) {
+        return closeTimestamp;
+    }
+
+    function getDeposits() external view returns (uint256[][] memory) {
+        return deposits;
+    }
+
+    function getTotalDeposited() public view returns (uint256) {
+        uint256 totalDeposited = 0;
+        for (uint256 i = 0; i < deposits.length; i++) {
+            totalDeposited = totalDeposited + deposits[i][1];
+        }
+        return totalDeposited;
+    }
+
+    function getFinalBalance() external view returns (uint256) {
+        return finalBalanceInWeth;
+    }
+
+    function getFinalAssets()
+        external
+        view
+        returns (
+            address[] memory,
+            uint256[] memory,
+            uint256[] memory,
+            uint256[] memory
+        )
+    {
+        return (
+            finalAssets,
+            finalAssetsPrices,
+            finalAssetsBalances,
+            finalAssetsBalancesInWeth
+        );
+    }
+
+    function getFeesPaid() external view returns (uint256[][] memory) {
+        return feesPaid;
+    }
+
+    function getOwnedAssets() external view returns (address[] memory) {
+        return ownedAssets;
+    }
+
+    function getEthBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function getWethBalance() public view returns (uint256) {
+        return IERC20(wethAddress).balanceOf(address(this));
+    }
+
+    function getTokenBalance(
+        address tokenAddress,
+        uint256 tokenPrice
+    ) public view returns (uint256, uint256) {
+        IERC20 token = IERC20(tokenAddress);
+        uint256 tokenBalance = token.balanceOf(address(this));
+        uint256 tokenDecimals = token.decimals();
+        uint256 tokenBalanceInWeth = (tokenBalance * tokenPrice) /
+            10 ** tokenDecimals;
+        return (tokenBalance, tokenBalanceInWeth);
+    }
+
+    function getTotalBalanceInWeth(
+        uint256[] memory ownedAssetsPrices
+    ) public view returns (uint256) {
+        uint256 tokenBalances = 0;
+        if (ownedAssets.length > 0) {
+            for (uint256 x = 0; x < ownedAssets.length; x++) {
+                (, uint256 tokenBalanceInWeth) = getTokenBalance(
+                    ownedAssets[x],
+                    ownedAssetsPrices[x]
+                );
+                tokenBalances = tokenBalances + tokenBalanceInWeth;
+            }
+        }
+        uint256 totalBalance = tokenBalances +
+            getEthBalance() +
+            getWethBalance();
+        return totalBalance;
+    }
+
+    function getLastRebalance() external view returns (uint256) {
+        return lastRebalance;
     }
 }

@@ -7,8 +7,8 @@ contract PolybitConfig {
     address public polybitAccessAddress;
     IPolybitAccess polybitAccess;
     address internal feeAddress = address(0);
-    uint256 internal depositFee = 0;
-    uint256 internal performanceFee = 0;
+    uint256 internal entryFee = 0;
+    uint256 internal exitFee = 0;
     address internal polybitRebalancerAddress = address(0);
     address internal polybitRouterAddress = address(0);
     address internal polybitDETFFactoryAddress = address(0);
@@ -32,10 +32,9 @@ contract PolybitConfig {
         );
     }
 
-    function setPolybitRebalancerAddress(address rebalancerAddress)
-        external
-        onlyPolybitOwner
-    {
+    function setPolybitRebalancerAddress(
+        address rebalancerAddress
+    ) external onlyPolybitOwner {
         require(address(rebalancerAddress) != address(0));
         polybitRebalancerAddress = rebalancerAddress;
     }
@@ -44,10 +43,9 @@ contract PolybitConfig {
         return polybitRebalancerAddress;
     }
 
-    function setPolybitRouterAddress(address routerAddress)
-        external
-        onlyPolybitOwner
-    {
+    function setPolybitRouterAddress(
+        address routerAddress
+    ) external onlyPolybitOwner {
         require(address(routerAddress) != address(0));
         polybitRouterAddress = routerAddress;
     }
@@ -56,10 +54,9 @@ contract PolybitConfig {
         return polybitRouterAddress;
     }
 
-    function setPolybitDETFFactoryAddress(address detfFactoryAddress)
-        external
-        onlyPolybitOwner
-    {
+    function setPolybitDETFFactoryAddress(
+        address detfFactoryAddress
+    ) external onlyPolybitOwner {
         require(address(detfFactoryAddress) != address(0));
         polybitDETFFactoryAddress = detfFactoryAddress;
     }
@@ -68,33 +65,61 @@ contract PolybitConfig {
         return polybitDETFFactoryAddress;
     }
 
-    function setDepositFee(uint256 fee) external onlyPolybitOwner {
-        // Fees use 2 decimal places e.g. (50 / 10000) = 0.5%
-        emit FeeSetter("Set Deposit Fee", fee);
-        depositFee = fee;
+    struct DETFProductInfo {
+        uint256 productId;
+        string category;
+        string dimension;
+        uint256 entryFee;
+        uint256 exitFee;
     }
 
-    function getDepositFee() external view returns (uint256) {
-        return depositFee;
+    mapping(uint256 => string) internal productCategory;
+    mapping(uint256 => string) internal productDimension;
+    mapping(uint256 => uint256) internal productEntryFee;
+    mapping(uint256 => uint256) internal productExitFee;
+
+    DETFProductInfo[] DETFProducts;
+
+    function createDETFProduct(
+        uint256 _productId,
+        string memory _category,
+        string memory _dimension,
+        uint256 _entryFee,
+        uint256 _exitFee
+    ) external onlyPolybitOwner {
+        DETFProductInfo memory DETFProduct = DETFProductInfo(
+            _productId,
+            _category,
+            _dimension,
+            _entryFee,
+            _exitFee
+        );
+        DETFProducts.push(DETFProduct);
+        productCategory[_productId] = _category;
+        productDimension[_productId] = _dimension;
+        productEntryFee[_productId] = _entryFee;
+        productExitFee[_productId] = _exitFee;
     }
 
-    event FeeSetter(string msg, uint256 ref);
-
-    function setPerformanceFee(uint256 fee) external onlyPolybitOwner {
-        // Fees use 2 decimal places e.g. (50 / 10000) = 0.5%
-        emit FeeSetter("Set Performance Fee", fee);
-        performanceFee = fee;
+    function getDETFProductInfo(
+        uint256 _productId
+    ) external view returns (string memory, string memory, uint256, uint256) {
+        return (
+            productCategory[_productId],
+            productDimension[_productId],
+            productEntryFee[_productId],
+            productExitFee[_productId]
+        );
     }
 
-    function getPerformanceFee() external view returns (uint256) {
-        return performanceFee;
-    }
+    event FeeSetter(string message, address newFeeAddress);
 
     function setFeeAddress(address _feeAddress) external onlyPolybitOwner {
         require(
             _feeAddress != address(0),
             ("PolybitConfig: FEE_ADDRESS_INVALID")
         );
+        emit FeeSetter("Fee Address changed", _feeAddress);
         feeAddress = _feeAddress;
     }
 

@@ -8,9 +8,9 @@ interface IPolybitConfig {
 
     function getPolybitDETFFactoryAddress() external view returns (address);
 
-    function getDepositFee() external view returns (uint256);
-
-    function getPerformanceFee() external view returns (uint256);
+    function getDETFProductInfo(
+        uint256 _productId
+    ) external view returns (string memory, string memory, uint256, uint256);
 
     function getFeeAddress() external view returns (address);
 

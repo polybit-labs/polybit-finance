@@ -16,6 +16,7 @@ import time
 cg = CoinGeckoAPI(api_key=config["data_providers"]["coingecko"])
 
 BNBUSD = cg.get_coin_by_id("binancecoin")["market_data"]["current_price"]["usd"]
+WETH = config["networks"]["bsc-main"]["weth_address"]
 
 TEST_ONE_ASSETS = [
     "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
@@ -107,6 +108,7 @@ def add_base_tokens_to_router(router, account):
     tx.wait(1)
 
 
+""" 
 def first_deposit_order_data(
     detf,
     rebalancer,
@@ -117,6 +119,7 @@ def first_deposit_order_data(
     target_assets_prices,
     weth_input_amount,
 ):
+    start = time.time()
     (buyList, buyListWeights, buyListPrices) = rebalancer.createBuyList(
         owned_assets, target_assets, target_assets_weights, target_assets_prices
     )
@@ -151,21 +154,19 @@ def first_deposit_order_data(
 
         for i in range(0, len(buyList)):
             if buyList[i] != "0x0000000000000000000000000000000000000000":
-                path = router.getLiquidPath(
-                    router.getWethAddress(),
-                    buyList[i],
-                    buyListAmountsIn[i],
-                    buyListAmountsOut[i],
+                (factory, path, amountsOut) = router.getLiquidPath(
+                    router.weth(), buyList[i], buyListAmountsIn[i]
                 )
                 time.sleep(3)
                 if len(path) > 0:
                     print(
                         "Buy",
+                        factory,
                         buyListAmountsIn[i],
                         buyListAmountsOut[i],
                         path,
                     )
-                    buyOrder[0][0].append("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73")
+                    buyOrder[0][0].append(factory)
                     buyOrder[0][1].append(path)
                     buyOrder[0][2].append(buyListAmountsIn[i])
                     buyOrder[0][3].append(buyListAmountsOut[i])
@@ -215,6 +216,238 @@ def first_deposit_order_data(
         ]
     ]
     print("Order Data", orderData)
+    end = time.time()
+    print("First rebalance OrderData time", end - start)
+    return orderData
+ """
+
+
+def first_deposit_order_data(
+    detf,
+    rebalancer,
+    router,
+    owned_assets,
+    target_assets,
+    target_assets_weights,
+    target_assets_prices,
+    weth_input_amount,
+):
+    start = time.time()
+    (buyList, buyListWeights, buyListPrices) = rebalancer.createBuyList(
+        owned_assets, target_assets, target_assets_weights, target_assets_prices
+    )
+    print("Buy List", buyList)
+    print("Buy List Weights", buyListWeights)
+    print("Buy List Prices", buyListPrices)
+
+    wethBalance = detf.getWethBalance() + int(weth_input_amount)
+
+    # Begin buy orders
+    totalTargetPercentage = 0
+    tokenBalances = 0
+    totalBalance = 0
+
+    for i in range(0, len(buyList)):
+        if buyList[i] != "0x0000000000000000000000000000000000000000":
+            targetPercentage = buyListWeights[i]
+            totalTargetPercentage += targetPercentage
+
+    buyOrder = [
+        [
+            [],
+            [],
+            [],
+            [],
+        ]
+    ]
+    if len(buyList) > 0:
+        (buyListAmountsIn, buyListAmountsOut) = rebalancer.createBuyOrder(
+            buyList, buyListWeights, buyListPrices, wethBalance, totalTargetPercentage
+        )
+
+        swap_orders = [[[]]]
+        for i in range(0, len(buyList)):
+            swap_orders[0][0].append(
+                [WETH, buyList[i], buyListAmountsIn[i], buyListAmountsOut[i]]
+            )
+        (factories, paths, amounts) = router.getLiquidPaths(swap_orders)
+
+        for i in range(0, len(buyList)):
+            if buyList[i] != "0x0000000000000000000000000000000000000000":
+                if len(paths[i]) > 0:
+                    print(
+                        "Buy",
+                        factories[i],
+                        paths[i],
+                        buyListAmountsIn[i],
+                        buyListAmountsOut[i],
+                    )
+                    buyOrder[0][0].append(factories[i])
+                    buyOrder[0][1].append(paths[i])
+                    buyOrder[0][2].append(buyListAmountsIn[i])
+                    buyOrder[0][3].append(buyListAmountsOut[i])
+
+                else:
+                    print("PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY")
+
+    orderData = [
+        [
+            [],
+            [],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
+            [],
+            [],
+            [],
+            [],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
+            [],
+            [],
+            [],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
+            buyList,
+            buyListWeights,
+            buyListPrices,
+            buyOrder,
+        ]
+    ]
+    print("Order Data", orderData)
+    end = time.time()
+    print("First rebalance OrderData time", end - start)
+    return orderData
+
+
+def first_deposit_combo_order_data(
+    rebalancer,
+    router,
+    owned_assets,
+    target_assets,
+    target_assets_weights,
+    target_assets_prices,
+    weth_input_amount,
+):
+    start = time.time()
+    (buyList, buyListWeights, buyListPrices) = rebalancer.createBuyList(
+        owned_assets, target_assets, target_assets_weights, target_assets_prices
+    )
+    print("Buy List", buyList)
+    print("Buy List Weights", buyListWeights)
+    print("Buy List Prices", buyListPrices)
+
+    wethBalance = int(weth_input_amount)
+
+    # Begin buy orders
+    totalTargetPercentage = 0
+    tokenBalances = 0
+    totalBalance = 0
+
+    for i in range(0, len(buyList)):
+        if buyList[i] != "0x0000000000000000000000000000000000000000":
+            targetPercentage = buyListWeights[i]
+            totalTargetPercentage += targetPercentage
+
+    buyOrder = [
+        [
+            [],
+            [],
+            [],
+            [],
+        ]
+    ]
+    if len(buyList) > 0:
+        (buyListAmountsIn, buyListAmountsOut) = rebalancer.createBuyOrder(
+            buyList, buyListWeights, buyListPrices, wethBalance, totalTargetPercentage
+        )
+
+        swap_orders = [[[]]]
+        for i in range(0, len(buyList)):
+            swap_orders[0][0].append(
+                [WETH, buyList[i], buyListAmountsIn[i], buyListAmountsOut[i]]
+            )
+        (factories, paths, amounts) = router.getLiquidPaths(swap_orders)
+
+        for i in range(0, len(buyList)):
+            if buyList[i] != "0x0000000000000000000000000000000000000000":
+                if len(paths[i]) > 0:
+                    print(
+                        "Buy",
+                        factories[i],
+                        paths[i],
+                        buyListAmountsIn[i],
+                        buyListAmountsOut[i],
+                    )
+                    buyOrder[0][0].append(factories[i])
+                    buyOrder[0][1].append(paths[i])
+                    buyOrder[0][2].append(buyListAmountsIn[i])
+                    buyOrder[0][3].append(buyListAmountsOut[i])
+
+                else:
+                    print("PolybitRouter: INSUFFICIENT_TOKEN_LIQUIDITY")
+
+    orderData = [
+        [
+            [],
+            [],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
+            [],
+            [],
+            [],
+            [],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
+            [],
+            [],
+            [],
+            [
+                [
+                    [],
+                    [],
+                    [],
+                    [],
+                ]
+            ],
+            buyList,
+            buyListWeights,
+            buyListPrices,
+            buyOrder,
+        ]
+    ]
+    print("Order Data", orderData)
+    end = time.time()
+    print("First rebalance OrderData time", end - start)
     return orderData
 
 
@@ -229,6 +462,7 @@ def rebalance(
     target_assets_weights,
     target_assets_prices,
 ):
+    start = time.time()
     (sellList, sellListPrices) = rebalancer.createSellList(
         owned_assets, owned_assets_prices, target_assets
     )
@@ -298,18 +532,30 @@ def rebalance(
             sellList, sellListPrices, detf.address
         )
 
+        swap_orders = [[[]]]
         for i in range(0, len(sellList)):
-            if sellList[i] != "0x0000000000000000000000000000000000000000":
-                path = router.getLiquidPath(
+            swap_orders[0][0].append(
+                [
                     sellList[i],
-                    router.getWethAddress(),
+                    WETH,
                     sellListAmountsIn[i],
                     sellListAmountsOut[i],
-                )
-                if len(path) > 0:
-                    print("Sell", sellListAmountsIn[i], sellListAmountsOut[i], path)
-                    sellOrder[0][0].append("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73")
-                    sellOrder[0][1].append(path)
+                ]
+            )
+        (factories, paths, amounts) = router.getLiquidPaths(swap_orders)
+
+        for i in range(0, len(sellList)):
+            if sellList[i] != "0x0000000000000000000000000000000000000000":
+                if len(paths[i]) > 0:
+                    print(
+                        "Sell",
+                        factories[i],
+                        paths[i],
+                        sellListAmountsIn[i],
+                        sellListAmountsOut[i],
+                    )
+                    sellOrder[0][0].append(factories[i])
+                    sellOrder[0][1].append(paths[i])
                     sellOrder[0][2].append(sellListAmountsIn[i])
                     sellOrder[0][3].append(sellListAmountsOut[i])
                     wethBalance = wethBalance + sellListAmountsOut[i]  # simulate SELL
@@ -336,25 +582,30 @@ def rebalance(
             detf.address,
         )
 
+        swap_orders = [[[]]]
         for i in range(0, len(adjustToSellList)):
-            if adjustToSellList[i] != "0x0000000000000000000000000000000000000000":
-                path = router.getLiquidPath(
+            swap_orders[0][0].append(
+                [
                     adjustToSellList[i],
-                    router.getWethAddress(),
+                    WETH,
                     adjustToSellListAmountsIn[i],
                     adjustToSellListAmountsOut[i],
-                )
-                if len(path) > 0:
+                ]
+            )
+        (factories, paths, amounts) = router.getLiquidPaths(swap_orders)
+
+        for i in range(0, len(adjustToSellList)):
+            if adjustToSellList[i] != "0x0000000000000000000000000000000000000000":
+                if len(paths[i]) > 0:
                     print(
                         "Adjust To Sell",
+                        factories[i],
+                        paths[i],
                         adjustToSellListAmountsIn[i],
                         adjustToSellListAmountsOut[i],
-                        path,
                     )
-                    adjustToSellOrder[0][0].append(
-                        "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
-                    )
-                    adjustToSellOrder[0][1].append(path)
+                    adjustToSellOrder[0][0].append(factories[i])
+                    adjustToSellOrder[0][1].append(paths[i])
                     adjustToSellOrder[0][2].append(adjustToSellListAmountsIn[i])
                     adjustToSellOrder[0][3].append(adjustToSellListAmountsOut[i])
                     wethBalance = wethBalance + adjustToSellListAmountsOut[i]
@@ -413,25 +664,30 @@ def rebalance(
             detf.address,
         )
 
+        swap_orders = [[[]]]
         for i in range(0, len(adjustToBuyList)):
-            if adjustToBuyList[i] != "0x0000000000000000000000000000000000000000":
-                path = router.getLiquidPath(
-                    router.getWethAddress(),
+            swap_orders[0][0].append(
+                [
+                    WETH,
                     adjustToBuyList[i],
                     adjustToBuyListAmountsIn[i],
                     adjustToBuyListAmountsOut[i],
-                )
-                if len(path) > 0:
+                ]
+            )
+        (factories, paths, amounts) = router.getLiquidPaths(swap_orders)
+
+        for i in range(0, len(adjustToBuyList)):
+            if adjustToBuyList[i] != "0x0000000000000000000000000000000000000000":
+                if len(paths[i]) > 0:
                     print(
                         "Adjust To Buy",
+                        factories[i],
+                        paths[i],
                         adjustToBuyListAmountsIn[i],
                         adjustToBuyListAmountsOut[i],
-                        path,
                     )
-                    adjustToBuyOrder[0][0].append(
-                        "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
-                    )
-                    adjustToBuyOrder[0][1].append(path)
+                    adjustToBuyOrder[0][0].append(factories[i])
+                    adjustToBuyOrder[0][1].append(paths[i])
                     adjustToBuyOrder[0][2].append(adjustToBuyListAmountsIn[i])
                     adjustToBuyOrder[0][3].append(adjustToBuyListAmountsOut[i])
 
@@ -451,23 +707,25 @@ def rebalance(
             buyList, buyListWeights, buyListPrices, wethBalance, totalTargetPercentage
         )
 
+        swap_orders = [[[]]]
+        for i in range(0, len(buyList)):
+            swap_orders[0][0].append(
+                [WETH, buyList[i], buyListAmountsIn[i], buyListAmountsOut[i]]
+            )
+        (factories, paths, amounts) = router.getLiquidPaths(swap_orders)
+
         for i in range(0, len(buyList)):
             if buyList[i] != "0x0000000000000000000000000000000000000000":
-                path = router.getLiquidPath(
-                    router.getWethAddress(),
-                    buyList[i],
-                    buyListAmountsIn[i],
-                    buyListAmountsOut[i],
-                )
-                if len(path) > 0:
+                if len(paths[i]) > 0:
                     print(
                         "Buy",
+                        factories[i],
+                        paths[i],
                         buyListAmountsIn[i],
                         buyListAmountsOut[i],
-                        path,
                     )
-                    buyOrder[0][0].append("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73")
-                    buyOrder[0][1].append(path)
+                    buyOrder[0][0].append(factories[i])
+                    buyOrder[0][1].append(paths[i])
                     buyOrder[0][2].append(buyListAmountsIn[i])
                     buyOrder[0][3].append(buyListAmountsOut[i])
 
@@ -495,6 +753,8 @@ def rebalance(
         ]
     ]
     print("Order Data", orderData)
+    end = time.time()
+    print("Full rebalance OrderData time", end - start)
 
     tx = detf.rebalanceDETF(
         orderData,
@@ -535,7 +795,7 @@ def get_owned_assets(detf):
     return owned_assets, owned_assets_prices
 
 
-def get_target_assets(detf, target_assets, target_assets_weights):
+def get_target_assets(target_assets, target_assets_weights):
     target_assets_prices = []
     print("Getting target asset prices from CoinGecko")
     for i in range(0, len(target_assets)):
@@ -568,7 +828,7 @@ def run_rebalance(account, detf, rebalancer, router, assets, weights):
         target_assets,
         target_assets_weights,
         target_assets_prices,
-    ) = get_target_assets(detf, assets, weights)
+    ) = get_target_assets(assets, weights)
     print("Owned Assets Before:", owned_assets)
     print("Target Assets Before:", target_assets)
 
@@ -589,7 +849,7 @@ def run_rebalance(account, detf, rebalancer, router, assets, weights):
         target_assets,
         target_assets_weights,
         target_assets_prices,
-    ) = get_target_assets(detf, assets, weights)
+    ) = get_target_assets(assets, weights)
     print("Owned Assets After:", owned_assets)
     print("Target Assets After:", target_assets)
 
@@ -659,17 +919,105 @@ def main():
     ##
     polybit_config = deploy_config.main(polybit_owner_account, polybit_access.address)
 
-    tx = polybit_config.setDepositFee(50, {"from": polybit_owner_account})
+    tx = polybit_config.createDETFProduct(
+        5610001000,
+        "BSC Index Top 10",
+        "Market Cap",
+        50,
+        50,
+        {"from": polybit_owner_account},
+    )
     tx.wait(1)
     for i in range(0, len(tx.events)):
         print(tx.events[i])
-    print("Deposit Fee", polybit_config.getDepositFee())
+    tx = polybit_config.createDETFProduct(
+        5610001001,
+        "BSC Index Top 10",
+        "Liquidity",
+        50,
+        50,
+        {"from": polybit_owner_account},
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610001002,
+        "BSC Index Top 10",
+        "Equally Balanced",
+        50,
+        50,
+        {"from": polybit_owner_account},
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610011000, "DeFi", "Market Cap", 50, 50, {"from": polybit_owner_account}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610011001, "DeFi", "Liquidity", 50, 50, {"from": polybit_owner_account}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610011002, "DeFi", "Equally Balanced", 50, 50, {"from": polybit_owner_account}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610021000, "Metaverse", "Market Cap", 50, 50, {"from": polybit_owner_account}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610021001, "Metaverse", "Liquidity", 50, 50, {"from": polybit_owner_account}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610021002,
+        "Metaverse",
+        "Equally Balanced",
+        50,
+        50,
+        {"from": polybit_owner_account},
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610031000, "Governance", "Market Cap", 50, 50, {"from": polybit_owner_account}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610031001, "Governance", "Liquidity", 50, 50, {"from": polybit_owner_account}
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+    tx = polybit_config.createDETFProduct(
+        5610031002,
+        "Governance",
+        "Equally Balanced",
+        50,
+        50,
+        {"from": polybit_owner_account},
+    )
+    tx.wait(1)
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
 
-    tx = polybit_config.setPerformanceFee(1000, {"from": polybit_owner_account})
-    tx.wait(1)
-    for i in range(0, len(tx.events)):
-        print(tx.events[i])
-    print("Performance Fee", polybit_config.getPerformanceFee())
+    print("Test product info call", polybit_config.getDETFProductInfo(5610031002))
 
     tx = polybit_config.setFeeAddress(
         fee_address.address, {"from": polybit_owner_account}
@@ -694,13 +1042,8 @@ def main():
     ##
     # Deploy Router
     ##
-    polybit_router = deploy_router.main(
-        polybit_owner_account,
-        polybit_access.address,
-        polybit_config.address,
-        config["networks"][network.show_active()]["pancakeswap_factory_address"],
-    )
-    add_base_tokens_to_router(polybit_router, polybit_access.routerOwner())
+    polybit_router = deploy_router.main(polybit_owner_account)
+    # add_base_tokens_to_router(polybit_router, polybit_access.routerOwner())
 
     tx = polybit_config.setPolybitRouterAddress(
         polybit_router.address, {"from": polybit_owner_account}
@@ -744,17 +1087,54 @@ def main():
     """ ##
     # Establish first DETF
     ##
-    product_category = "BSC Index Top 10"
-    product_dimension = "Market Cap"
+
+    product_id = 5610021000
 
     tx = polybit_detf_factory.createDETF(
         wallet_owner,
-        product_category,
-        product_dimension,
+        product_id,
         {"from": polybit_owner_account},
     )
     for i in range(0, len(tx.events)):
         print(tx.events[i]) """
+
+    """ ##
+    # First Establish/Deposit combo
+    ##
+    product_id = 5610021000
+    lock_duration = 30 * 86400
+    deposit_amount = Web3.toWei(1, "ether")
+    owned_assets = []
+    (
+        target_assets,
+        target_assets_weights,
+        target_assets_prices,
+    ) = get_target_assets(TEST_ONE_ASSETS, TEST_ONE_WEIGHTS)
+    order_data = first_deposit_combo_order_data(
+        polybit_rebalancer,
+        polybit_router,
+        owned_assets,
+        target_assets,
+        target_assets_weights,
+        target_assets_prices,
+        deposit_amount,
+    )
+
+    tx = polybit_detf_factory.createDETF(
+        [wallet_owner, product_id, lock_duration, order_data],
+        {"from": polybit_owner_account, "value": deposit_amount},
+    )
+    for i in range(0, len(tx.events)):
+        print(tx.events[i])
+
+    detf = Contract.from_abi(
+        "", polybit_detf_factory.getListOfDETFs()[0], polybit_detf.abi
+    )
+
+    print(
+        "multicall - wallet owner",
+        polybit_multicall.getDETFAccountDetailFromWalletOwner(wallet_owner),
+    ) """
 
     ##
     # Print Contract Info for Export
@@ -788,7 +1168,9 @@ def main():
     print("Multicall ABI")
     print(polybit_multicall.abi)
 
-    """ detf = Contract.from_abi(
+    """
+
+    detf = Contract.from_abi(
         "", polybit_detf_factory.getListOfDETFs()[0], polybit_detf.abi
     )
 
@@ -804,7 +1186,7 @@ def main():
         target_assets,
         target_assets_weights,
         target_assets_prices,
-    ) = get_target_assets(detf, TEST_ONE_ASSETS, TEST_ONE_WEIGHTS)
+    ) = get_target_assets(TEST_ONE_ASSETS, TEST_ONE_WEIGHTS)
     order_data = first_deposit_order_data(
         detf,
         polybit_rebalancer,
@@ -828,21 +1210,6 @@ def main():
     ##
     # First rebalance
     ##
-    print("REBALANCE #1")
-    run_rebalance(
-        rebalancer_account,
-        detf,
-        polybit_rebalancer,
-        polybit_router,
-        TEST_ONE_ASSETS,
-        TEST_ONE_WEIGHTS,
-    )
-    print("Deposits", detf.getDeposits())
-    print("Total Deposits", detf.getTotalDeposited())
-
-    ##
-    # Second rebalance
-    ##
     print("REBALANCE #2")
     run_rebalance(
         rebalancer_account,
@@ -851,6 +1218,21 @@ def main():
         polybit_router,
         TEST_TWO_ASSETS,
         TEST_TWO_WEIGHTS,
+    )
+    print("Deposits", detf.getDeposits())
+    print("Total Deposits", detf.getTotalDeposited())
+
+    ##
+    # Second rebalance
+    ##
+    print("REBALANCE #3")
+    run_rebalance(
+        rebalancer_account,
+        detf,
+        polybit_rebalancer,
+        polybit_router,
+        TEST_THREE_ASSETS,
+        TEST_THREE_WEIGHTS,
     )
     print("Deposits", detf.getDeposits())
     print("Total Deposits", detf.getTotalDeposited())
@@ -894,4 +1276,5 @@ def main():
         polybit_multicall.getAllTokenBalancesInWeth(
             detf.address, owned_assets, owned_assets_prices
         ),
-    ) """
+    )
+ """

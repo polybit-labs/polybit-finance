@@ -7,7 +7,7 @@ import "./interfaces/IPolybitAccess.sol";
 /**
  * @title Polybit DETF Factory
  * @author Matt Leeburn
- * @notice An factory to spawn new Decentralised ETF strategy accounts.
+ * @notice A factory to spawn new DETFs.
  */
 
 contract PolybitDETFFactory {
@@ -57,26 +57,54 @@ contract PolybitDETFFactory {
 
     event DETFCreated(string msg, address ref);
 
+    struct CreateDEFParameters {
+        address _walletOwner;
+        uint256 _productId;
+        uint256 _lockTimestamp;
+        PolybitDETF.SwapOrders[] _orderData;
+    }
+
+    struct DETFProductParameters {
+        address _detf;
+        string _productCategory;
+        string _productDimension;
+        uint256 _entryFee;
+        uint256 _exitFee;
+    }
+
     /**
      * @notice Creates a new DETF and stores the address in the Factory's list.
      */
     function createDETF(
-        address _walletOwner,
-        string memory _productCategory,
-        string memory _productDimension
-    ) public {
-        address DETF = createClone(polybitDETFAddress);
-        PolybitDETF(payable(DETF)).init(
+        CreateDEFParameters memory createParams
+    ) public payable {
+        DETFProductParameters memory productParams;
+        productParams._detf = createClone(polybitDETFAddress);
+        (
+            productParams._productCategory,
+            productParams._productDimension,
+            productParams._entryFee,
+            productParams._exitFee
+        ) = polybitConfig.getDETFProductInfo(createParams._productId);
+
+        PolybitDETF(payable(productParams._detf)).init{value: msg.value}(
             polybitAccessAddress,
             polybitConfigAddress,
-            _walletOwner,
+            createParams._walletOwner,
             address(this),
-            _productCategory,
-            _productDimension
+            createParams._productId,
+            productParams._productCategory,
+            productParams._productDimension,
+            productParams._entryFee,
+            productParams._exitFee,
+            createParams._orderData
         );
-        detfAddressList.push(address(DETF));
-        setDETFAccounts(_walletOwner, address(DETF));
-        emit DETFCreated("New DETF created", address(DETF));
+        detfAddressList.push(address(productParams._detf));
+        setDETFAccounts(
+            createParams._walletOwner,
+            address(productParams._detf)
+        );
+        emit DETFCreated("New DETF created", address(productParams._detf));
     }
 
     /**

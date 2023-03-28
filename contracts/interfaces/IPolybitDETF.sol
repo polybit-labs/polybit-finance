@@ -4,8 +4,6 @@ pragma solidity >=0.8.7;
 interface IPolybitDETF {
     function getStatus() external view returns (uint256);
 
-    function getProductId() external view returns (uint256);
-
     function getProductCategory() external view returns (string memory);
 
     function getProductDimension() external view returns (string memory);
@@ -22,8 +20,6 @@ interface IPolybitDETF {
 
     function getTotalDeposited() external view returns (uint256);
 
-    function getFeesPaid() external view returns (uint256[][] memory);
-
     function getFinalBalance() external view returns (uint256);
 
     function getFinalAssets()
@@ -35,6 +31,8 @@ interface IPolybitDETF {
             uint256[] memory,
             uint256[] memory
         );
+
+    function getFeesPaid() external view returns (uint256[][] memory);
 
     function getOwnedAssets() external view returns (address[] memory);
 

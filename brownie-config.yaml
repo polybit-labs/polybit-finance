@@ -72,8 +72,6 @@ wallets:
     test_polybit_fee: ${TEST_POLYBIT_FEE_ADDRESS}
     test_polybit_fee_key: ${TEST_POLYBIT_FEE_PRIVATE_KEY}
 dotenv: .env
-polybit-finance:
-    version: 0.0.6
 data_providers:
     coingecko: ${COINGECKO_API_KEY}
     moralis: ${MORALIS_API_KEY}
