@@ -28,7 +28,7 @@ interface IPolybitRouter {
         view
         returns (address[] memory, address[][] memory, uint256[] memory);
 
-    function swapTokens(
+    function swapExactTokensForTokens(
         address factory,
         address[] memory path,
         uint256 amountIn,

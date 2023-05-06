@@ -126,7 +126,7 @@ contract PolybitRouter is PolybitRouterImmutables {
     ) public view returns (address, address[] memory, uint256) {
         LiquidPathParameters memory params;
 
-        //PolybitSwap
+        /* //PolybitSwap
         (
             address[] memory polybitswapPath,
             uint256 polybitswapAmountsOut
@@ -141,9 +141,9 @@ contract PolybitRouter is PolybitRouterImmutables {
         //Set the initial challenger
         params.bestFactory = POLYBITSWAP_FACTORY;
         params.bestPath = polybitswapPath;
-        params.bestAmountsOut = polybitswapAmountsOut;
+        params.bestAmountsOut = polybitswapAmountsOut; */
 
-        /* //Pancakeswap
+        //Pancakeswap
         (
             address[] memory pancakeswapPath,
             uint256 pancakeswapAmountsOut
@@ -194,7 +194,7 @@ contract PolybitRouter is PolybitRouterImmutables {
             params.bestFactory = BISWAP_FACTORY;
             params.bestPath = biswapPath;
             params.bestAmountsOut = biswapAmountsOut;
-        } */
+        }
 
         return (params.bestFactory, params.bestPath, params.bestAmountsOut);
     }
@@ -217,7 +217,6 @@ contract PolybitRouter is PolybitRouterImmutables {
         view
         returns (address[] memory, address[][] memory, uint256[] memory)
     {
-        //SwapOrders memory swapOrders;
         address[] memory factories = new address[](
             swapOrders[0].swapOrder.length
         );
@@ -248,49 +247,186 @@ contract PolybitRouter is PolybitRouterImmutables {
         return (factories, paths, amounts);
     }
 
-    // requires the initial amount to have already been sent to the first pair
     function _swap(
-        address swapFactory,
-        uint256[] memory amounts,
+        address factory,
         address[] memory path,
+        uint[] memory amounts,
         address _to
     ) internal virtual {
-        for (uint256 i; i < path.length - 1; i++) {
+        for (uint i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0, ) = PolybitSwapLibrary.sortTokens(input, output);
-            uint256 amountOut = amounts[i + 1];
-            (uint256 amount0Out, uint256 amount1Out) = input == token0
-                ? (uint256(0), amountOut)
-                : (amountOut, uint256(0));
+            uint amountOut = amounts[i + 1];
+            (uint amount0Out, uint amount1Out) = input == token0
+                ? (uint(0), amountOut)
+                : (amountOut, uint(0));
             address to = i < path.length - 2
-                ? PolybitSwapLibrary.pairFor(swapFactory, output, path[i + 2])
+                ? PolybitSwapLibrary.pairFor(factory, output, path[i + 2])
                 : _to;
-            IPolybitSwapPair(
-                PolybitSwapLibrary.pairFor(swapFactory, input, output)
-            ).swap(amount0Out, amount1Out, to, new bytes(0));
+            IPolybitSwapPair(PolybitSwapLibrary.pairFor(factory, input, output))
+                .swap(amount0Out, amount1Out, to, new bytes(0));
         }
     }
 
-    function swapTokens(
-        address swapFactory,
-        address[] memory path,
-        uint256 amountIn,
-        uint256 amountOutMin,
+    function swapExactTokensForTokens(
+        address factory,
+        address[] calldata path,
+        uint amountIn,
+        uint amountOutMin,
         address to,
-        uint256 deadline
-    ) external virtual ensure(deadline) returns (uint256[] memory amounts) {
-        amounts = PolybitSwapLibrary.getAmountsOut(swapFactory, amountIn, path);
+        uint deadline
+    ) external virtual ensure(deadline) returns (uint[] memory amounts) {
+        amounts = PolybitSwapLibrary.getAmountsOut(factory, amountIn, path);
         require(
             amounts[amounts.length - 1] >= amountOutMin,
-            "UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT"
+            "PolybitRouter: INSUFFICIENT_OUTPUT_AMOUNT"
         );
         TransferHelper.safeTransferFrom(
             path[0],
             msg.sender,
-            PolybitSwapLibrary.pairFor(swapFactory, path[0], path[1]),
+            PolybitSwapLibrary.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
-        _swap(swapFactory, amounts, path, to);
+        _swap(factory, path, amounts, to);
+    }
+
+    function swapTokensForExactTokens(
+        address factory,
+        address[] calldata path,
+        uint amountOut,
+        uint amountInMax,
+        address to,
+        uint deadline
+    ) external virtual ensure(deadline) returns (uint[] memory amounts) {
+        amounts = PolybitSwapLibrary.getAmountsIn(factory, amountOut, path);
+        require(
+            amounts[0] <= amountInMax,
+            "PolybitRouter: EXCESSIVE_INPUT_AMOUNT"
+        );
+        TransferHelper.safeTransferFrom(
+            path[0],
+            msg.sender,
+            PolybitSwapLibrary.pairFor(factory, path[0], path[1]),
+            amounts[0]
+        );
+        _swap(factory, path, amounts, to);
+    }
+
+    function swapExactETHForTokens(
+        address factory,
+        address[] calldata path,
+        uint amountOutMin,
+        address to,
+        uint deadline
+    )
+        external
+        payable
+        virtual
+        ensure(deadline)
+        returns (uint[] memory amounts)
+    {
+        require(path[0] == WETH_ADDRESS, "PolybitRouter: INVALID_PATH");
+        amounts = PolybitSwapLibrary.getAmountsOut(factory, msg.value, path);
+        require(
+            amounts[amounts.length - 1] >= amountOutMin,
+            "PolybitRouter: INSUFFICIENT_OUTPUT_AMOUNT"
+        );
+        WETH.deposit{value: amounts[0]}();
+        assert(
+            WETH.transfer(
+                PolybitSwapLibrary.pairFor(factory, path[0], path[1]),
+                amounts[0]
+            )
+        );
+        _swap(factory, path, amounts, to);
+    }
+
+    function swapTokensForExactETH(
+        address factory,
+        address[] calldata path,
+        uint amountOut,
+        uint amountInMax,
+        address to,
+        uint deadline
+    ) external virtual ensure(deadline) returns (uint[] memory amounts) {
+        require(
+            path[path.length - 1] == WETH_ADDRESS,
+            "PolybitRouter: INVALID_PATH"
+        );
+        amounts = PolybitSwapLibrary.getAmountsIn(factory, amountOut, path);
+        require(
+            amounts[0] <= amountInMax,
+            "PolybitRouter: EXCESSIVE_INPUT_AMOUNT"
+        );
+        TransferHelper.safeTransferFrom(
+            path[0],
+            msg.sender,
+            PolybitSwapLibrary.pairFor(factory, path[0], path[1]),
+            amounts[0]
+        );
+        _swap(factory, path, amounts, address(this));
+        WETH.withdraw(amounts[amounts.length - 1]);
+        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+    }
+
+    function swapExactTokensForETH(
+        address factory,
+        address[] calldata path,
+        uint amountIn,
+        uint amountOutMin,
+        address to,
+        uint deadline
+    ) external virtual ensure(deadline) returns (uint[] memory amounts) {
+        require(
+            path[path.length - 1] == WETH_ADDRESS,
+            "PolybitRouter: INVALID_PATH"
+        );
+        amounts = PolybitSwapLibrary.getAmountsOut(factory, amountIn, path);
+        require(
+            amounts[amounts.length - 1] >= amountOutMin,
+            "PolybitRouter: INSUFFICIENT_OUTPUT_AMOUNT"
+        );
+        TransferHelper.safeTransferFrom(
+            path[0],
+            msg.sender,
+            PolybitSwapLibrary.pairFor(factory, path[0], path[1]),
+            amounts[0]
+        );
+        _swap(factory, path, amounts, address(this));
+        WETH.withdraw(amounts[amounts.length - 1]);
+        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+    }
+
+    function swapETHForExactTokens(
+        address factory,
+        address[] calldata path,
+        uint amountOut,
+        address to,
+        uint deadline
+    )
+        external
+        payable
+        virtual
+        ensure(deadline)
+        returns (uint[] memory amounts)
+    {
+        require(path[0] == WETH_ADDRESS, "PolybitRouter: INVALID_PATH");
+        amounts = PolybitSwapLibrary.getAmountsIn(factory, amountOut, path);
+        require(
+            amounts[0] <= msg.value,
+            "PolybitRouter: EXCESSIVE_INPUT_AMOUNT"
+        );
+        WETH.deposit{value: amounts[0]}();
+        assert(
+            WETH.transfer(
+                PolybitSwapLibrary.pairFor(factory, path[0], path[1]),
+                amounts[0]
+            )
+        );
+        _swap(factory, path, amounts, to);
+        // refund dust eth, if any
+        if (msg.value > amounts[0])
+            TransferHelper.safeTransferETH(msg.sender, msg.value - amounts[0]);
     }
 
     function getAmountsOut(

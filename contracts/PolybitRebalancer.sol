@@ -97,11 +97,7 @@ contract PolybitRebalancer {
     )
         external
         pure
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory
-        )
+        returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         require(
             ownedAssetsList.length == ownedAssetsPrices.length,
@@ -181,11 +177,7 @@ contract PolybitRebalancer {
     )
         external
         view
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory
-        )
+        returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         require(
             adjustList.length == adjustListPrices.length,
@@ -210,7 +202,7 @@ contract PolybitRebalancer {
                 (, data.tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustList[i], adjustListPrices[i]);
                 data.tokenBalancePercentage =
-                    (10**8 * data.tokenBalanceInWeth) /
+                    (10 ** 8 * data.tokenBalanceInWeth) /
                     /* data.totalBalance; */
                     totalBalance;
                 data.tokenTargetPercentage = adjustListWeights[i];
@@ -283,11 +275,7 @@ contract PolybitRebalancer {
     )
         external
         view
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory
-        )
+        returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         require(
             adjustList.length == adjustListWeights.length,
@@ -312,7 +300,7 @@ contract PolybitRebalancer {
                 (, data.tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustList[i], adjustListPrices[i]);
                 data.tokenBalancePercentage =
-                    (10**8 * data.tokenBalanceInWeth) /
+                    (10 ** 8 * data.tokenBalanceInWeth) /
                     /*data.totalBalance;*/
                     totalBalance;
                 data.tokenTargetPercentage = adjustListWeights[i];
@@ -380,11 +368,7 @@ contract PolybitRebalancer {
     )
         external
         pure
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory
-        )
+        returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         require(
             targetAssetsList.length == targetAssetsWeights.length,
@@ -476,7 +460,7 @@ contract PolybitRebalancer {
                 (, data.tokenBalanceInWeth) = IPolybitDETF(detfAddress)
                     .getTokenBalance(adjustToBuyList[i], adjustToBuyPrices[i]);
                 data.tokenBalancePercentage =
-                    (10**8 * data.tokenBalanceInWeth) /
+                    (10 ** 8 * data.tokenBalanceInWeth) /
                     data.totalBalance;
                 data.targetPercentage = adjustToBuyWeights[i];
                 data.totalTargetPercentage += (data.targetPercentage -
@@ -579,7 +563,7 @@ contract PolybitRebalancer {
                     detfAddress
                 ).getTokenBalance(adjustToSellList[i], adjustToSellPrices[i]);
                 data.tokenBalancePercentage =
-                    (10**8 * data.tokenBalanceInWeth) /
+                    (10 ** 8 * data.tokenBalanceInWeth) /
                     data.totalBalance;
                 data.tokenTargetPercentage = adjustToSellWeights[i];
                 data.amountIn =
@@ -645,15 +629,15 @@ contract PolybitRebalancer {
                     .getTokenBalance(adjustToBuyList[i], adjustToBuyPrices[i]);
                 data.targetPercentage =
                     adjustToBuyWeights[i] -
-                    ((10**8 * data.tokenBalanceInWeth) / totalBalance);
+                    ((10 ** 8 * data.tokenBalanceInWeth) / totalBalance);
                 data.percentageOfAvailableWeth =
-                    (10**8 * data.targetPercentage) /
+                    (10 ** 8 * data.targetPercentage) /
                     totalTargetPercentage;
                 data.precisionAmountIn =
                     (wethBalance * data.percentageOfAvailableWeth) /
-                    10**8;
+                    10 ** 8;
                 data.amountOut =
-                    (10**18 * data.precisionAmountIn) /
+                    (10 ** 18 * data.precisionAmountIn) /
                     data.tokenPrice;
                 data.adjustToBuyListAmountsIn[index] = data.precisionAmountIn;
                 data.adjustToBuyListAmountsOut[index] = data.amountOut;
@@ -699,13 +683,13 @@ contract PolybitRebalancer {
             data.tokenPrice = buyListPrices[i];
             data.targetPercentage = buyListWeights[i];
             data.percentageOfAvailableWeth =
-                (10**8 * data.targetPercentage) /
+                (10 ** 8 * data.targetPercentage) /
                 totalTargetPercentage;
             data.precisionAmountIn =
                 (wethBalance * data.percentageOfAvailableWeth) /
-                10**8;
+                10 ** 8;
             data.amountOut =
-                (10**18 * data.precisionAmountIn) /
+                (10 ** 18 * data.precisionAmountIn) /
                 data.tokenPrice;
             data.buyListAmountsIn[index] = data.precisionAmountIn;
             data.buyListAmountsOut[index] = data.amountOut;

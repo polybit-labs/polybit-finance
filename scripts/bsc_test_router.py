@@ -1,4 +1,4 @@
-from scripts import deploy_router
+from scripts import deploy_liquid_path
 from scripts.utils.polybit_utils import get_account
 from brownie import (
     config,
@@ -22,7 +22,7 @@ def main():
         "", "0x502C8da60d4A8847D5549A1858EA899478a05A7c", PolybitAccess.abi
     )
 
-    polybit_router = deploy_router.main(
+    polybit_router = deploy_liquid_path.main(
         polybit_owner_account,
     )
     tx = polybit_config.setPolybitRouterAddress(

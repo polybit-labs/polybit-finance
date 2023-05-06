@@ -4,7 +4,7 @@ from scripts.utils.polybit_utils import get_account
 from scripts import (
     deploy_DETF_oracle_factory,
     deploy_DETF_oracle_from_factory,
-    deploy_router,
+    deploy_liquid_path,
 )
 
 OWNER = get_account(type="owner")
@@ -23,7 +23,7 @@ Test changing the status of the DETF Oracle, by the Owner account
 
 
 def test_change_detf_oracle_status__owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -46,7 +46,7 @@ Test changing the status of the DETF Oracle, with an account that is not the Own
 
 
 def test_change_detf_oracle_status__non_owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -68,7 +68,7 @@ Test adding an asset to the DETF Oracle, by the Owner account
 
 
 def test_add_asset_to_detf_oracle__owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -98,7 +98,7 @@ Test adding an asset to the DETF Oracle, with an account that is not the Owner
 
 
 def test_add_asset_to_detf_oracle__non_owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -124,7 +124,7 @@ Test adding an asset to the DETF Oracle that already exists, by the Owner accoun
 
 
 def test_add_duplicate_asset_to_detf_oracle__owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -160,7 +160,7 @@ Test removing an asset in the DETF Oracle, by the Owner account
 
 
 def test_removing_asset_from_detf_oracle__owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -203,7 +203,7 @@ Test removing an asset in the DETF Oracle, with an account that is not the Owner
 
 
 def test_removing_asset_from_detf_oracle__non_owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -238,7 +238,7 @@ Test removing an asset in the DETF Oracle that does not exist, by the Owner acco
 
 
 def test_removing_asset_from_detf_oracle_that_does_not_exist__non_owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -273,7 +273,7 @@ Test returning the target list if the oracle status is set to inactive, by the O
 
 
 def test_inactive_oracle_target_list__owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -312,7 +312,7 @@ Test changing the router address, by the Owner account
 
 
 def test_changing_router_address__owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -322,7 +322,7 @@ def test_changing_router_address__owner():
 
     assert detf_oracle.getRouterAddress() == router.address
 
-    new_router = deploy_router.main(
+    new_router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
 
@@ -337,7 +337,7 @@ Test changing the router address, with an account that is not the Owner
 
 
 def test_changing_router_address__non_owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -347,7 +347,7 @@ def test_changing_router_address__non_owner():
 
     assert detf_oracle.getRouterAddress() == router.address
 
-    new_router = deploy_router.main(
+    new_router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
 
@@ -363,7 +363,7 @@ Test transfer owner
 
 
 def test_transfer_owner_oracle():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -407,7 +407,7 @@ Test read functions
 
 
 def test_read_functions():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)

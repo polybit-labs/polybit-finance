@@ -4,7 +4,7 @@ from scripts.utils.polybit_utils import get_account
 from scripts import (
     deploy_DETF_oracle_factory,
     deploy_DETF_oracle_from_factory,
-    deploy_router,
+    deploy_liquid_path,
 )
 
 OWNER = get_account(type="owner")
@@ -33,7 +33,7 @@ Test deploying a DETF Oracle from the Oracle Factory, by the Owner account
 
 
 def test_deploy_detf_oracle_from_factory__owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -49,7 +49,7 @@ Test deploying a DETF Oracle from the Oracle Factory, with an account that is no
 
 
 def test_deploy_detf_oracle_from_factory_non_owner():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)
@@ -151,7 +151,7 @@ Test transfer owner
 
 
 def test_transfer_owner_oracle_factory():
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         OWNER, TEST_DETF_WETH_ADDRESS, TEST_DETF_SWAP_FACTORY_ADDRESS
     )
     oracle_factory = deploy_DETF_oracle_factory.main(OWNER)

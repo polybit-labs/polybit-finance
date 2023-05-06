@@ -1,8 +1,8 @@
 from scripts import (
     deploy_access,
     deploy_config,
+    deploy_liquid_path,
     deploy_rebalancer,
-    deploy_router,
     deploy_DETF_factory,
     deploy_DETF_from_factory,
 )

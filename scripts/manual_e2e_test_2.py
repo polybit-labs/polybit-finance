@@ -1,6 +1,6 @@
 from scripts import (
+    deploy_liquid_path,
     deploy_rebalancer,
-    deploy_router,
     deploy_DETF_factory,
     deploy_DETF_from_factory,
 )
@@ -604,7 +604,7 @@ def main():
     account = get_account(type="owner")
     print("Account Owner Address", account.address)
     rebalancer = deploy_rebalancer.main(account)
-    router = deploy_router.main(
+    router = deploy_liquid_path.main(
         account,
         config["networks"][network.show_active()]["pancakeswap_factory_address"],
         config["networks"][network.show_active()]["weth_address"],

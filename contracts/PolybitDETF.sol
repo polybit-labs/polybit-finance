@@ -113,41 +113,6 @@ contract PolybitDETF {
         timeLock = unixTimeLock;
     }
 
-    /* struct DETFAccountDetail {
-        uint256 status;
-        uint256 creationTimestamp;
-        uint256 closeTimestamp;
-        string productCategory;
-        string productDimension;
-        uint256[][] deposits;
-        uint256 totalDeposited;
-        uint256[][] feesPaid;
-        uint256 timeLock;
-        uint256 timeLockRemaining;
-        uint256 finalBalanceInWeth;
-    }
-
-    function getDETFAccountDetail()
-        external
-        view
-        returns (DETFAccountDetail memory)
-    {
-        DETFAccountDetail memory data;
-
-        data.status = status;
-        data.creationTimestamp = creationTimestamp;
-        data.closeTimestamp = closeTimestamp;
-        data.productCategory = productCategory;
-        data.productDimension = productDimension;
-        data.deposits = deposits;
-        data.totalDeposited = getTotalDeposited();
-        data.feesPaid = feesPaid;
-        data.timeLock = timeLock;
-        data.timeLockRemaining = getTimeLockRemaining();
-        data.finalBalanceInWeth = finalBalanceInWeth;
-        return data;
-    } */
-
     event EthBalance(string, uint256);
 
     function initialDeposit(
@@ -447,7 +412,7 @@ contract PolybitDETF {
             "PolybitDETF: TOKEN_APPROVE_FAILED"
         );
 
-        uint256[] memory routerAmounts = polybitRouter.swapTokens(
+        uint256[] memory routerAmounts = polybitRouter.swapExactTokensForTokens(
             factory,
             path,
             amountIn,

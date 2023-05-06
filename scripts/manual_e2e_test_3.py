@@ -1,8 +1,8 @@
 from scripts import (
     deploy_access,
     deploy_config,
+    deploy_liquid_path,
     deploy_rebalancer,
-    deploy_router,
     deploy_DETF_factory,
     deploy_DETF_from_factory,
 )
@@ -657,7 +657,7 @@ def main():
     ##
     #Deploy Router
     ##
-    polybit_router = deploy_router.main(
+    polybit_router = deploy_liquid_path.main(
         polybit_owner_account,
         polybit_access.address,
         polybit_config.address,
